@@ -2,6 +2,7 @@ export * from "./baseSchemas.ts";
 export * from "./assistantCitations.ts";
 export * from "./background.ts";
 export * from "./auth.ts";
+export * from "./acpRegistry.ts";
 export * from "./environment.ts";
 export * from "./environmentHttp.ts";
 export * from "./relayClient.ts";
