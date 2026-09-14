@@ -92,7 +92,13 @@ export interface AcpSessionRuntimeOptions {
     readonly name: string;
     readonly version: string;
   };
-  readonly authMethodId: string;
+  readonly authMethodId?: string;
+  /**
+   * Standard ACP agents should first attempt session setup and authenticate
+   * only after error -32000. Existing provider-specific integrations keep
+   * eager authentication by leaving this false.
+   */
+  readonly authenticateOnAuthRequired?: boolean;
   readonly mcpServers?: ReadonlyArray<EffectAcpSchema.McpServer>;
   /** Extra workspace roots the agent may read and write besides `cwd`. */
   readonly additionalDirectories?: ReadonlyArray<string>;
@@ -699,15 +705,41 @@ export const make = (
     const startOnce = Effect.gen(function* () {
       const initializeResult = yield* sendInitialize;
 
-      const authenticatePayload = {
-        methodId: options.authMethodId,
-      } satisfies EffectAcpSchema.AuthenticateRequest;
+      const authenticate = Effect.gen(function* () {
+        const methodId =
+          options.authMethodId?.trim() || initializeResult.authMethods?.[0]?.id?.trim();
+        if (!methodId) {
+          return yield* new EffectAcpErrors.AcpTransportError({
+            method: "authenticate",
+            detail: "The ACP agent requires authentication but did not advertise a usable method.",
+            cause: initializeResult.authMethods,
+          });
+        }
+        const authenticatePayload = {
+          methodId,
+        } satisfies EffectAcpSchema.AuthenticateRequest;
+        yield* runLoggedRequest(
+          "authenticate",
+          authenticatePayload,
+          acp.agent.authenticate(authenticatePayload),
+        );
+      });
+      const authenticateAndRetry = <A>(
+        effect: Effect.Effect<A, EffectAcpErrors.AcpError>,
+      ): Effect.Effect<A, EffectAcpErrors.AcpError> =>
+        effect.pipe(
+          Effect.catch((error) =>
+            options.authenticateOnAuthRequired === true &&
+            error._tag === "AcpRequestError" &&
+            error.code === -32000
+              ? authenticate.pipe(Effect.andThen(effect))
+              : Effect.fail(error),
+          ),
+        );
 
-      yield* runLoggedRequest(
-        "authenticate",
-        authenticatePayload,
-        acp.agent.authenticate(authenticatePayload),
-      );
+      if (options.authenticateOnAuthRequired !== true) {
+        yield* authenticate;
+      }
 
       let sessionId: string;
       let sessionSetupResult:
@@ -734,7 +766,7 @@ export const make = (
         sessionSetupResult = yield* runLoggedRequest(
           "session/resume",
           resumePayload,
-          acp.agent.resumeSession(resumePayload).pipe(
+          authenticateAndRetry(acp.agent.resumeSession(resumePayload)).pipe(
             Effect.timeoutOption(options.sessionLoadTimeout ?? defaultSessionLoadTimeout),
             Effect.flatMap((result) =>
               Option.isSome(result)
@@ -785,7 +817,7 @@ export const make = (
             gateRef: sessionLoadGateRef,
           }).pipe(Effect.forkIn(runtimeScope));
           const loaded = yield* Effect.raceFirst(
-            acp.agent.loadSession(loadPayload),
+            authenticateAndRetry(acp.agent.loadSession(loadPayload)),
             Fiber.join(idleFiber),
           ).pipe(
             Effect.ensuring(Fiber.interrupt(idleFiber).pipe(Effect.ignore)),
@@ -835,7 +867,7 @@ export const make = (
         const created = yield* runLoggedRequest(
           "session/new",
           createPayload,
-          acp.agent.createSession(createPayload),
+          authenticateAndRetry(acp.agent.createSession(createPayload)),
         );
         sessionId = created.sessionId;
         sessionSetupResult = created;

@@ -51,6 +51,7 @@ const emitOverlappingXAiPromptCompleteOutOfOrder =
 const failPrompt = process.env.T3_ACP_FAIL_PROMPT === "1";
 const failSetConfigOption = process.env.T3_ACP_FAIL_SET_CONFIG_OPTION === "1";
 const exitOnSetConfigOption = process.env.T3_ACP_EXIT_ON_SET_CONFIG_OPTION === "1";
+const requireAuthentication = process.env.T3_ACP_REQUIRE_AUTHENTICATION === "1";
 const promptResponseText = process.env.T3_ACP_PROMPT_RESPONSE_TEXT;
 const initialGrokReasoningEffort =
   process.env.T3_ACP_INITIAL_GROK_REASONING_EFFORT?.trim() || undefined;
@@ -75,6 +76,7 @@ let currentContext = "272k";
 let currentFast = false;
 let promptCount = 0;
 let overlappingFirstPromptId: string | undefined;
+let authenticated = false;
 const cancelledSessions = new Set<string>();
 
 function promptIdFromRequestMeta(
@@ -407,6 +409,9 @@ const program = Effect.gen(function* () {
       return {
         protocolVersion: 1,
         agentCapabilities: { loadSession: true, sessionCapabilities: { resume: {} } },
+        ...(requireAuthentication
+          ? { authMethods: [{ id: "test", name: "Test authentication" }] }
+          : {}),
         // Grok advertises model state before any session exists; the provider
         // health check reads it from here without authenticating.
         _meta: { modelState: modelState() },
@@ -418,7 +423,10 @@ const program = Effect.gen(function* () {
   // process environment and rejects when it is missing.
   yield* agent.handleAuthenticate((request) =>
     !antigravityProfile || request.methodId === "oauth-personal"
-      ? Effect.succeed({})
+      ? Effect.sync(() => {
+          authenticated = true;
+          return {};
+        })
       : request.methodId === "gemini-api-key" && process.env.GEMINI_API_KEY
         ? Effect.succeed({})
         : Effect.fail(
@@ -431,18 +439,30 @@ const program = Effect.gen(function* () {
     yield* agent.handleLogout(() => Effect.succeed({}));
   }
 
+  const requireAuthenticated = <A>(effect: Effect.Effect<A, AcpError.AcpError>) =>
+    requireAuthentication && !authenticated
+      ? Effect.fail(
+          new AcpError.AcpRequestError({
+            code: -32000,
+            errorMessage: "Authentication required",
+          }),
+        )
+      : effect;
+
   yield* agent.handleCreateSession(() =>
-    Effect.gen(function* () {
-      if (antigravityProfile) {
-        yield* publishAntigravityCommands(sessionId);
-      }
-      return {
-        sessionId,
-        modes: modeState(),
-        models: modelState(),
-        configOptions: configOptions(),
-      };
-    }),
+    requireAuthenticated(
+      Effect.gen(function* () {
+        if (antigravityProfile) {
+          yield* publishAntigravityCommands(sessionId);
+        }
+        return {
+          sessionId,
+          modes: modeState(),
+          models: modelState(),
+          configOptions: configOptions(),
+        };
+      }),
+    ),
   );
 
   yield* agent.handleResumeSession((request) =>

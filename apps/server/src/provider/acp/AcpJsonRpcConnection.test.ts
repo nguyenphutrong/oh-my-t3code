@@ -32,6 +32,28 @@ const mockRuntimeOptions = {
 } satisfies AcpSessionRuntime.AcpSessionRuntimeOptions;
 
 describe("AcpSessionRuntime", () => {
+  it.effect("authenticates and retries only after a standard ACP auth-required response", () =>
+    Effect.gen(function* () {
+      const requests: Array<{ readonly method: string; readonly status: string }> = [];
+      const runtime = yield* AcpSessionRuntime.make({
+        ...mockRuntimeOptions,
+        spawn: {
+          ...mockRuntimeOptions.spawn,
+          env: { T3_ACP_REQUIRE_AUTHENTICATION: "1" },
+        },
+        authenticateOnAuthRequired: true,
+        requestLogger: (event) =>
+          Effect.sync(() => requests.push({ method: event.method, status: event.status })),
+      });
+
+      const started = yield* runtime.start();
+      expect(started.sessionId).toBe("mock-session-1");
+      expect(
+        requests.filter((event) => event.status === "started").map((event) => event.method),
+      ).toEqual(["initialize", "session/new", "authenticate"]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   for (const setupMethod of ["session/new", "session/resume"] as const) {
     it.effect(`buffers root metadata while ${setupMethod} startup is still pending`, () =>
       Effect.gen(function* () {

@@ -108,6 +108,11 @@ import * as ProviderMaintenanceRunner from "./provider/providerMaintenanceRunner
 import { ProviderAuthService } from "./provider/Services/ProviderAuthService.ts";
 import { ProviderInstanceRegistry } from "./provider/Services/ProviderInstanceRegistry.ts";
 import { makeProviderInstallation } from "./provider/providerInstallation.ts";
+import {
+  AcpRegistryCatalog,
+  AcpRegistryError,
+  toAcpRegistryOperationError,
+} from "./provider/acp/AcpRegistrySupport.ts";
 import * as ServerSelfUpdate from "./cloud/selfUpdate.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
@@ -546,6 +551,7 @@ const makeWsRpcLayer = (
       const providerAuth = yield* ProviderAuthService;
       const providerInstances = yield* ProviderInstanceRegistry;
       const providerInstallation = yield* makeProviderInstallation();
+      const acpRegistryCatalog = yield* AcpRegistryCatalog;
       const serverUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
       const config = yield* ServerConfig.ServerConfig;
       const lifecycleEvents = yield* ServerLifecycleEvents.ServerLifecycleEvents;
@@ -2027,6 +2033,54 @@ const makeWsRpcLayer = (
             sourceControlDiscovery.discover,
             {
               "rpc.aggregate": "server",
+            },
+          ),
+        [WS_METHODS.serverSearchAcpRegistry]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.serverSearchAcpRegistry,
+            acpRegistryCatalog.search(input).pipe(Effect.mapError(toAcpRegistryOperationError)),
+            { "rpc.aggregate": "server" },
+          ),
+        [WS_METHODS.serverPrepareAcpRegistryAgent]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.serverPrepareAcpRegistryAgent,
+            acpRegistryCatalog.prepare(input).pipe(Effect.mapError(toAcpRegistryOperationError)),
+            {
+              "rpc.aggregate": "server",
+              "acp_registry.agent_id": input.agentId,
+            },
+          ),
+        [WS_METHODS.serverUninstallAcpRegistryManagedBinary]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.serverUninstallAcpRegistryManagedBinary,
+            serverSettings.getSettings.pipe(
+              Effect.mapError(
+                (cause) =>
+                  new AcpRegistryError({
+                    reason: "install_failed",
+                    detail: `Could not inspect provider settings before removing ${input.agentId}.`,
+                    cause,
+                  }),
+              ),
+              Effect.flatMap((settings) =>
+                acpRegistryCatalog.uninstallManagedBinary(
+                  input,
+                  Effect.succeed(
+                    Object.values(settings.providerInstances).some(
+                      (instance) =>
+                        instance.driver === "acpRegistry" &&
+                        typeof instance.config === "object" &&
+                        instance.config !== null &&
+                        (instance.config as Record<string, unknown>).agentId === input.agentId,
+                    ),
+                  ),
+                ),
+              ),
+              Effect.mapError(toAcpRegistryOperationError),
+            ),
+            {
+              "rpc.aggregate": "server",
+              "acp_registry.agent_id": input.agentId,
             },
           ),
         [WS_METHODS.serverGetTraceDiagnostics]: (_input) =>
