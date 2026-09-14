@@ -1,5 +1,11 @@
 import * as Schema from "effect/Schema";
-import { IsoDateTime, NonNegativeInt, ProjectId, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import {
+  IsoDateTime,
+  NonNegativeInt,
+  ProjectId,
+  ThreadId,
+  TrimmedNonEmptyString,
+} from "./baseSchemas.ts";
 import { ProviderInstanceId } from "./providerInstance.ts";
 
 /** Coding agent home directories the scanner knows how to read. */
@@ -112,6 +118,8 @@ export class AgentSessionImportProjectChangedError extends Schema.TaggedErrorCla
 export const AgentSessionImportResult = Schema.Struct({
   importedCount: NonNegativeInt,
   skippedCount: NonNegativeInt,
+  /** The imported thread for a single-session request, including an already imported session. */
+  threadId: Schema.optional(ThreadId),
 });
 export type AgentSessionImportResult = typeof AgentSessionImportResult.Type;
 

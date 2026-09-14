@@ -1,4 +1,6 @@
 import { CommandId, parseCodexSessionLink, type EnvironmentId } from "@t3tools/contracts";
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 
 import { newProjectId } from "../lib/utils";
@@ -10,6 +12,9 @@ import { projectEnvironment } from "../state/projects";
 import { useDebouncedValue } from "../state/queries";
 import { useEnvironmentQuery } from "../state/query";
 import { useAtomCommand } from "../state/use-atom-command";
+import { buildThreadRouteParams } from "../threadRoutes";
+import { useUiStateStore } from "../uiStateStore";
+import { waitForStartedServerThread } from "./ChatView.logic";
 import { Button } from "./ui/button";
 import { Dialog, DialogPopup, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
@@ -17,6 +22,7 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "./u
 import { toastManager } from "./ui/toast";
 
 export function ImportSessionsDialog({ onClose }: { readonly onClose: () => void }) {
+  const navigate = useNavigate();
   const { environments } = useEnvironments();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const [environmentId, setEnvironmentId] = useState<EnvironmentId | null>(
@@ -103,13 +109,26 @@ export function ImportSessionsDialog({ onClose }: { readonly onClose: () => void
       if (
         imported._tag !== "Success" ||
         imported.value.importedCount === 0 ||
-        imported.value.skippedCount > 0
+        imported.value.skippedCount > 0 ||
+        imported.value.threadId === undefined
       ) {
         setError(
           "Could not import the session history. The transcript may be missing, unreadable, or too large.",
         );
         return;
       }
+      const threadRef = scopeThreadRef(environmentId, imported.value.threadId);
+      if (!(await waitForStartedServerThread(threadRef, 10_000))) {
+        setError(
+          "Session imported, but its history has not synced yet. Try importing again to open it.",
+        );
+        return;
+      }
+      useUiStateStore.getState().setSidebarProjectScopeKey(null);
+      await navigate({
+        to: "/$environmentId/$threadId",
+        params: buildThreadRouteParams(threadRef),
+      });
       toastManager.add({
         type: "success",
         title: "Session imported",

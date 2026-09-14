@@ -183,9 +183,11 @@ const runImport = (input: {
   readonly directory: ProviderSessionDirectory.ProviderSessionDirectory["Service"];
   readonly snapshots: ReturnType<typeof makeSnapshotsLayer>;
   readonly expectedWorkspaceRoot?: string;
+  readonly codexSessionId?: string;
 }) =>
   importRecentAgentThreads({
     projectId: PROJECT_ID,
+    ...(input.codexSessionId === undefined ? {} : { codexSessionId: input.codexSessionId }),
     ...(input.expectedWorkspaceRoot === undefined
       ? {}
       : { expectedWorkspaceRoot: input.expectedWorkspaceRoot }),
@@ -283,6 +285,39 @@ it.layer(NodeServices.layer)("AgentSessionImporter", (it) => {
             runtimePayload: { cwd: WORKSPACE_ROOT },
           },
         ]);
+
+        const targeted = makeThreadOutcome({
+          ...makeThread("codex"),
+          providerInstanceId: ProviderInstanceId.make("codex-work"),
+        });
+        for (const outcome of [
+          targeted,
+          { _tag: "AlreadyImported", source: targeted.source } as const,
+          { _tag: "Skipped" } as const,
+        ]) {
+          const result = yield* runImport({
+            scanner: {
+              ...scanner,
+              recentThreads: (_root, _completed, sessionId) => {
+                expect(sessionId).toBe(targeted.thread.providerSessionId);
+                return Stream.succeed(outcome);
+              },
+            },
+            engine,
+            directory,
+            snapshots: makeSnapshotsLayer({ project: makeProject() }),
+            codexSessionId: targeted.thread.providerSessionId,
+          });
+          expect(result).toEqual(
+            outcome._tag === "Skipped"
+              ? { importedCount: 0, skippedCount: 1 }
+              : {
+                  importedCount: 1,
+                  skippedCount: 0,
+                  threadId: "import:codex-work:codex-session",
+                },
+          );
+        }
       }),
     );
 

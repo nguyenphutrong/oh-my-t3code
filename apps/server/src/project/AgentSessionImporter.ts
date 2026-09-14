@@ -294,5 +294,10 @@ export const importRecentAgentThreads = Effect.fn("importRecentAgentThreads")(fu
     }),
   );
 
-  return { importedCount, skippedCount } satisfies AgentSessionImportResult;
+  const threadId = input.codexSessionId ? importedThreadIds.values().next().value : undefined;
+  return {
+    importedCount,
+    skippedCount,
+    ...(threadId === undefined ? {} : { threadId }),
+  } satisfies AgentSessionImportResult;
 });
