@@ -108,6 +108,7 @@ const TranscriptMessage = Schema.Struct({
 
 const CodexTurnMetadata = Schema.Struct({
   turn_id: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
+  content_item_kinds: Schema.optional(Schema.Array(Schema.String)),
 });
 
 const TranscriptRecord = Schema.Struct({
@@ -284,6 +285,37 @@ function codexTurnId(metadata: unknown): string | null {
     return null;
   }
   return decoded.value.turn_id;
+}
+
+/** Codex stores harness context as user-role model input, not visible user prompts. */
+function isCodexContextMessage(payload: NonNullable<DecodedTranscriptRecord["payload"]>): boolean {
+  const content = payload.content;
+  if (!content?.length) return false;
+  const metadata = decodeCodexTurnMetadata(payload.internal_chat_message_metadata_passthrough);
+  const kinds = Option.isSome(metadata) ? metadata.value.content_item_kinds : undefined;
+  if (kinds !== undefined) {
+    return (
+      kinds.length === content.length &&
+      kinds.every(
+        (kind) =>
+          kind === "agents_md.instructions" ||
+          kind === "plugins.recommendations" ||
+          kind === "skills.selected_skill_instructions" ||
+          kind === "environments.environment_context" ||
+          kind.startsWith("additional_content."),
+      )
+    );
+  }
+  // Older rollouts lack classifications. Match whole context blocks only;
+  // quotes and prompts with text outside the block must remain visible.
+  return content.every((block) => {
+    if (block.type !== "input_text" || block.text === undefined) return false;
+    const text = block.text.trim();
+    return (
+      /^<(environment_context|recommended_plugins|skill)>[\s\S]*<\/\1>$/i.test(text) ||
+      /^# AGENTS\.md instructions[^\n]*\n\s*<INSTRUCTIONS>[\s\S]*<\/INSTRUCTIONS>$/i.test(text)
+    );
+  });
 }
 
 /** Keep visible user and assistant text while ignoring tools, reasoning, and malformed records. */
@@ -472,6 +504,9 @@ function parseAgentSessionRecords(
 
     const extractedText = extractText(record.payload.content);
     if (extractedText.length === 0) continue;
+    if (record.payload.role === "user" && isCodexContextMessage(record.payload)) {
+      continue;
+    }
     if (record.payload.role === "user" && canonicalCodexResponseUserIndices.has(recordIndex)) {
       continue;
     }

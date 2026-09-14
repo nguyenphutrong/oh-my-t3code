@@ -3179,7 +3179,7 @@ describe("parseAgentSessionTranscript", () => {
     ]);
   });
 
-  it("preserves context markup in response-only Codex messages", () => {
+  it("filters standalone environment context in response-only Codex messages", () => {
     const context = "<environment_context>\n<cwd>/tmp/project</cwd>\n</environment_context>";
     const thread = AgentSessionScanner.parseAgentSessionTranscript({
       contents: [
@@ -3212,12 +3212,75 @@ describe("parseAgentSessionTranscript", () => {
       lastActiveAtMs: Date.parse("2026-08-25T08:00:00.000Z"),
     });
 
-    expect(thread?.title).toBe("<environment_context>");
+    expect(thread?.title).toBe("Initialize Git and add a README.");
     expect(thread?.messages.map((message) => message.text)).toEqual([
-      context,
       "Initialize Git and add a README.",
     ]);
   });
+
+  it.each([
+    ["<recommended_plugins>\nAvailable plugins\n</recommended_plugins>", undefined, false],
+    ["<skill>\nSelected skill instructions\n</skill>", undefined, false],
+    [
+      "# AGENTS.md instructions for /tmp/project\n\n<INSTRUCTIONS>Rules</INSTRUCTIONS>",
+      undefined,
+      false,
+    ],
+    ["Files mentioned by the user: screenshot.png", ["additional_content.files"], false],
+    ["Generated plugin list without markup", ["plugins.recommendations"], false],
+    ["<skill>quoted example</skill>", ["user.text"], true],
+    ["<skill>unclassified text</skill>", ["unknown"], true],
+    [
+      "<skill>misaligned metadata</skill>",
+      ["skills.selected_skill_instructions", "user.text"],
+      true,
+    ],
+    ["Please explain this: <skill>example</skill>", undefined, true],
+    ["<skill>example</skill>\nPlease explain this.", undefined, true],
+    ["<recommended_plugins>incomplete block", undefined, true],
+  ] as const)(
+    "classifies Codex response context without a turn ID: %s",
+    (text, kinds, retained) => {
+      const thread = AgentSessionScanner.parseAgentSessionTranscript({
+        contents: [
+          encodeTranscriptRecord({ type: "session_meta", payload: { id: "codex-session" } }),
+          encodeTranscriptRecord({
+            type: "response_item",
+            payload: {
+              type: "message",
+              role: "user",
+              ...(kinds === undefined
+                ? {}
+                : { internal_chat_message_metadata_passthrough: { content_item_kinds: kinds } }),
+              content: [{ type: "input_text", text }],
+            },
+          }),
+          encodeTranscriptRecord({
+            type: "event_msg",
+            payload: { type: "user_message", message: "Build the usage dashboard" },
+          }),
+          encodeTranscriptRecord({
+            type: "response_item",
+            payload: {
+              type: "message",
+              role: "assistant",
+              content: [{ type: "output_text", text: "Dashboard implemented" }],
+            },
+          }),
+        ].join("\n"),
+        source: "codex",
+        providerInstanceId: ProviderInstanceId.make("codex"),
+        fallbackSessionId: "fallback",
+        lastActiveAtMs: Date.parse("2026-08-25T08:00:00.000Z"),
+      });
+      expect(thread?.messages.map((message) => message.text)).toEqual([
+        ...(retained ? [text] : []),
+        "Build the usage dashboard",
+        "Dashboard implemented",
+      ]);
+      expect(thread?.title).toBe(retained ? text.split("\n")[0] : "Build the usage dashboard");
+    },
+  );
 
   it("preserves a canonical Codex event that starts with context markup", () => {
     const prompt =
