@@ -265,7 +265,7 @@ it.layer(NodeServices.layer)("build-npm-platform-packages", (it) => {
       assert.equal(unsupported.exitCode, 1);
       assert.include(unsupported.stderr, "linux-x64");
       assert.include(unsupported.stderr, "win32-arm64");
-      assert.include(unsupported.stderr, "https://github.com/nguyenphutrong/t3code/releases");
+      assert.include(unsupported.stderr, "https://github.com/nguyenphutrong/oh-my-t3code/releases");
     }),
   );
 });

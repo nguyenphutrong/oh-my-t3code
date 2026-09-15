@@ -1,4 +1,4 @@
-export const GITHUB_REPOSITORY_URL = "https://github.com/nguyenphutrong/t3code";
+export const GITHUB_REPOSITORY_URL = "https://github.com/nguyenphutrong/oh-my-t3code";
 
 export const IOS_APP_STORE_URL = `${GITHUB_REPOSITORY_URL}/releases`;
 

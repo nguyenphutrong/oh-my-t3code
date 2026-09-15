@@ -36,7 +36,7 @@ consumed by the desktop app.
 - CLI, archive prefix, and executable: `oh-my-t3code`
 - Desktop app ID: `com.nguyenphutrong.ohmyt3code`
 - Default data directory: `~/.oh-my-t3code`
-- Release repository: `nguyenphutrong/t3code`
+- Release repository: `nguyenphutrong/oh-my-t3code`
 
 The internal `@t3tools/*` workspace names and `T3CODE_*` environment variables remain technical
 implementation identifiers. The MIT license and upstream copyright notices must remain intact.

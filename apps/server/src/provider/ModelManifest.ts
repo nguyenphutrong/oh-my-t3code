@@ -37,7 +37,7 @@ import bundledManifestJson from "./model-manifest.json" with { type: "json" };
 import type { ServerProviderDraft } from "./providerSnapshot.ts";
 
 const MODEL_MANIFEST_URL =
-  "https://raw.githubusercontent.com/nguyenphutrong/t3code/main/apps/server/src/provider/model-manifest.json";
+  "https://raw.githubusercontent.com/nguyenphutrong/oh-my-t3code/main/apps/server/src/provider/model-manifest.json";
 
 /** How long a fetched manifest stays fresh before the next probe re-fetches. */
 const MANIFEST_TTL_MS = 60 * 60 * 1000;

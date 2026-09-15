@@ -27,13 +27,13 @@ independent distribution.
 Install the self-contained CLI from this repository's latest GitHub Release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/oh-my-t3code/main/scripts/install.sh | sh
 ```
 
 On Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/nguyenphutrong/oh-my-t3code/main/scripts/install.ps1 | iex
 ```
 
 Run `oh-my-t3code` to launch the backend and local web app. Use
@@ -42,7 +42,7 @@ Run `oh-my-t3code` to launch the backend and local web app. Use
 ### Desktop app
 
 Install the latest desktop build from this fork's
-[GitHub Releases](https://github.com/nguyenphutrong/t3code/releases). Unsigned builds may show the
+[GitHub Releases](https://github.com/nguyenphutrong/oh-my-t3code/releases). Unsigned builds may show the
 operating system's normal warning until fork-owned signing credentials are configured.
 
 ## Some notes
@@ -96,4 +96,4 @@ vp i
 Read [CONTRIBUTING.md](./CONTRIBUTING.md) before reporting a bug or opening a PR.
 
 Have a feature request or need support? Start a
-[discussion](https://github.com/nguyenphutrong/t3code/discussions).
+[discussion](https://github.com/nguyenphutrong/oh-my-t3code/discussions).

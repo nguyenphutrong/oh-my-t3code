@@ -2,7 +2,7 @@
 # Installs the Oh My T3Code CLI from a GitHub Release archive. Needs only sh, tar,
 # sha256sum or shasum, and curl or wget; no Node, npm, or compiler.
 #
-#   curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/oh-my-t3code/main/scripts/install.sh | sh
 #
 # Environment:
 #   T3CODE_CHANNEL           release train to follow: stable, nightly, or preview
@@ -17,7 +17,7 @@
 # instead of fetching the release again.
 set -eu
 
-repo="nguyenphutrong/t3code"
+repo="nguyenphutrong/oh-my-t3code"
 base_url="${T3CODE_RELEASE_BASE_URL:-https://github.com/${repo}/releases/download}"
 t3_home="${T3CODE_HOME:-$HOME/.oh-my-t3code}"
 bin_dir="${T3CODE_INSTALL_BIN_DIR:-$HOME/.local/bin}"

@@ -31,11 +31,11 @@ Node.js or npm once the CLI is on it. To get the CLI onto a machine without
 Node, run the install script:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/oh-my-t3code/main/scripts/install.sh | sh
 ```
 
 On Windows, run
-`irm https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.ps1 | iex` in
+`irm https://raw.githubusercontent.com/nguyenphutrong/oh-my-t3code/main/scripts/install.ps1 | iex` in
 PowerShell instead. Windows background services are not supported.
 
 It places `oh-my-t3code` in `~/.local/bin` and reuses the same download when you later

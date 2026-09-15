@@ -18,13 +18,13 @@ launch T3 Code and configure providers afterwards.
 Install the latest self-contained CLI on macOS or Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/oh-my-t3code/main/scripts/install.sh | sh
 ```
 
 On Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/nguyenphutrong/oh-my-t3code/main/scripts/install.ps1 | iex
 ```
 
 Run `oh-my-t3code` to start the server and open the local web app. Run
@@ -34,11 +34,11 @@ The executable is built for Apple Silicon Macs, Linux, and Windows. There is
 no Intel Mac build of it, because Node cannot produce a single executable for
 that platform; the Intel desktop app is unaffected. To run a standalone server
 on an Intel Mac, build it from source. You need Node.js 24 and `vp` (see
-[Install vp](https://github.com/nguyenphutrong/t3code#install-vp)):
+[Install vp](https://github.com/nguyenphutrong/oh-my-t3code#install-vp)):
 
 ```bash
-git clone https://github.com/nguyenphutrong/t3code
-cd t3code && vp i && vp run build:desktop
+git clone https://github.com/nguyenphutrong/oh-my-t3code
+cd oh-my-t3code && vp i && vp run build:desktop
 node apps/server/dist/bin.mjs
 ```
 
@@ -49,7 +49,7 @@ however you run other Node processes.
 ## Desktop app
 
 Download an installer from this fork's
-[GitHub Releases](https://github.com/nguyenphutrong/t3code/releases). Package-manager releases are
+[GitHub Releases](https://github.com/nguyenphutrong/oh-my-t3code/releases). Package-manager releases are
 not available yet. Unsigned builds may show the operating system's normal warning.
 
 ### Windows Subsystem for Linux
