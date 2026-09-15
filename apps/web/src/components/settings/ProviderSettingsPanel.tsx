@@ -75,6 +75,7 @@ import { Toggle, ToggleGroup } from "../ui/toggle-group";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { AddProviderInstanceDialog } from "./AddProviderInstanceDialog";
+import { AcpRegistrySetupSection, configuredAcpRegistryAgentId } from "./AcpRegistrySetupSection";
 import { ExpandableText } from "./ExpandableText";
 import { ProviderInstanceCard } from "./ProviderInstanceCard";
 import { UsageProviderSettings } from "./UsageProviderSettings";
@@ -911,6 +912,13 @@ export function EnvironmentProviderSettings({
               enabled={resolveProviderInstanceEnabled(row.instance)}
               readOnly={readOnly}
               onEnable={() => updateProviderInstance(row, { ...row.instance, enabled: true })}
+            />
+          ) : mode === "editor" && row.driver === "acpRegistry" ? (
+            <AcpRegistrySetupSection
+              environmentId={environmentId}
+              agentId={configuredAcpRegistryAgentId(row.instance.config)}
+              provider={liveProvider}
+              readOnly={readOnly}
             />
           ) : null
         }

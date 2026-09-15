@@ -1,20 +1,22 @@
 "use client";
 
 import { Radio as RadioPrimitive } from "@base-ui/react/radio";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
+  type AcpRegistrySearchAgent,
   ProviderInstanceId,
   ProviderDriverKind,
   type EnvironmentId,
   type ProviderInstanceConfig,
+  type ProviderInstanceEnvironmentVariable,
 } from "@t3tools/contracts";
 
 import { useEnvironmentSettings, useUpdateEnvironmentSettings } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
 import { normalizeProviderAccentColor } from "../../providerInstances";
 import { Button } from "../ui/button";
-import { ACPRegistryIcon, Gemini, GithubCopilotIcon, PiAgentIcon, type Icon } from "../Icons";
+import { Gemini, GithubCopilotIcon, PiAgentIcon, type Icon } from "../Icons";
 import { Dialog } from "../ui/dialog";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
@@ -25,10 +27,12 @@ import { ProviderSettingsForm, deriveProviderSettingsFields } from "./ProviderSe
 import { WizardPanel, WizardPopup, WizardHeader, WizardFooter } from "../ui/wizard";
 import {
   ADD_PROVIDER_WIZARD_STEPS,
+  deriveAvailableInstanceId,
   resolveWizardNavigation,
   type WizardNavigation,
 } from "./AddProviderInstanceDialog.logic";
 import { AddProviderInstanceWizardSteps } from "./AddProviderInstanceWizardSteps";
+import { AcpRegistrySearchStep } from "./AcpRegistrySearchStep";
 
 const PROVIDER_ACCENT_SWATCHES = [
   "#2563eb",
@@ -62,8 +66,22 @@ function deriveInstanceId(driver: ProviderDriverKind, label: string): string {
 
 const INSTANCE_ID_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
 const DEFAULT_DRIVER_KIND = ProviderDriverKind.make("codex");
+const ACP_REGISTRY_DRIVER_KIND = ProviderDriverKind.make("acpRegistry");
 const DEFAULT_DRIVER_OPTION = DRIVER_OPTIONS[0]!;
 const EMPTY_CONFIG_DRAFT: Record<string, unknown> = {};
+type EnvironmentVariableDraft = ProviderInstanceEnvironmentVariable & { readonly draftId: string };
+let nextEnvironmentVariableDraftId = 0;
+
+function makeEnvironmentVariableDraft(): EnvironmentVariableDraft {
+  nextEnvironmentVariableDraftId += 1;
+  return {
+    draftId: `environment-variable-${nextEnvironmentVariableDraftId}`,
+    name: "",
+    value: "",
+    sensitive: false,
+  };
+}
+
 interface ComingSoonDriverOption {
   readonly value: ProviderDriverKind;
   readonly label: string;
@@ -80,11 +98,6 @@ const COMING_SOON_DRIVER_OPTIONS: readonly ComingSoonDriverOption[] = [
     value: ProviderDriverKind.make("gemini"),
     label: "Gemini",
     icon: Gemini,
-  },
-  {
-    value: ProviderDriverKind.make("acpRegistry"),
-    label: "ACP Registry",
-    icon: ACPRegistryIcon,
   },
   {
     value: ProviderDriverKind.make("piAgent"),
@@ -135,6 +148,11 @@ export function AddProviderInstanceDialog({
   // Errors are suppressed until the user has tried to submit once. After that
   // they update live so fixing the problem clears the message in place.
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [selectedAcp, setSelectedAcp] = useState<AcpRegistrySearchAgent | null>(null);
+  const [manualAcpConfiguration, setManualAcpConfiguration] = useState(false);
+  const [environmentVariables, setEnvironmentVariables] = useState<
+    ReadonlyArray<EnvironmentVariableDraft>
+  >([]);
 
   const existingIds = useMemo(
     () => new Set(Object.keys(settings.providerInstances ?? {})),
@@ -142,6 +160,7 @@ export function AddProviderInstanceDialog({
   );
 
   const driverOption = DRIVER_OPTION_BY_VALUE[driver] ?? DEFAULT_DRIVER_OPTION;
+  const isAcpRegistry = driver === ACP_REGISTRY_DRIVER_KIND;
   const instanceId = instanceIdOverride ?? deriveInstanceId(driver, label);
   const driverSettingsFields = useMemo(
     () => deriveProviderSettingsFields(driverOption),
@@ -153,6 +172,20 @@ export function AddProviderInstanceDialog({
   const wizardStepSummaries = [driverOption.label, previewLabel, null] as const;
 
   const configDraft = configByDriver[driver] ?? EMPTY_CONFIG_DRAFT;
+  const configuredAgentId =
+    typeof configDraft.agentId === "string" ? configDraft.agentId.trim() : "";
+  const acpSelectionError =
+    !isAcpRegistry || selectedAcp !== null || (manualAcpConfiguration && configuredAgentId)
+      ? null
+      : "Select an ACP Registry agent or choose manual configuration.";
+  const environmentNames = environmentVariables.map((variable) => variable.name.trim());
+  const environmentError = environmentVariables.some(
+    (variable) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(variable.name.trim()),
+  )
+    ? "Environment variable names must use letters, digits, and underscores."
+    : new Set(environmentNames).size !== environmentNames.length
+      ? "Environment variable names must be unique."
+      : null;
   const setConfigDraft = (config: Record<string, unknown> | undefined) => {
     setConfigByDriver((existing) => {
       const next = { ...existing };
@@ -173,6 +206,10 @@ export function AddProviderInstanceDialog({
   };
 
   const navigateToStep = (requestedStep: number) => {
+    if (wizardStep === 1 && requestedStep > 1 && acpSelectionError !== null) {
+      setHasAttemptedSubmit(true);
+      return;
+    }
     applyWizardNavigation(
       resolveWizardNavigation(wizardStep, requestedStep, ADD_PROVIDER_WIZARD_STEPS.length, {
         instanceIdError,
@@ -180,9 +217,64 @@ export function AddProviderInstanceDialog({
     );
   };
 
+  const handleAcpPrepared = (agent: AcpRegistrySearchAgent) => {
+    const nextInstanceId = deriveAvailableInstanceId(
+      (candidateLabel) => deriveInstanceId(ACP_REGISTRY_DRIVER_KIND, candidateLabel),
+      agent.name,
+      existingIds,
+    );
+    setSelectedAcp(agent);
+    setManualAcpConfiguration(false);
+    setLabel(agent.name);
+    setInstanceIdOverride(nextInstanceId);
+    setConfigByDriver((existing) => ({
+      ...existing,
+      [ACP_REGISTRY_DRIVER_KIND]: {
+        agentId: agent.id,
+        distribution: "auto",
+      },
+    }));
+    setHasAttemptedSubmit(false);
+  };
+
+  const handleManualAcpConfiguration = () => {
+    setSelectedAcp(null);
+    setManualAcpConfiguration(true);
+    setConfigByDriver((existing) => ({ ...existing, [ACP_REGISTRY_DRIVER_KIND]: {} }));
+    setHasAttemptedSubmit(false);
+  };
+
+  const handleDriverChange = (value: string) => {
+    setDriver(ProviderDriverKind.make(value));
+    setLabel("");
+    setAccentColor("");
+    setInstanceIdOverride(null);
+    setSelectedAcp(null);
+    setManualAcpConfiguration(false);
+    setEnvironmentVariables([]);
+    setHasAttemptedSubmit(false);
+  };
+
+  const handleChooseAnotherAcp = () => {
+    setSelectedAcp(null);
+    setLabel("");
+    setInstanceIdOverride(null);
+    setConfigByDriver((existing) => {
+      const next = { ...existing };
+      delete next[ACP_REGISTRY_DRIVER_KIND];
+      return next;
+    });
+    setHasAttemptedSubmit(false);
+  };
+
   const handleSave = () => {
     setHasAttemptedSubmit(true);
-    if (instanceIdError !== null) return;
+    if (
+      instanceIdError !== null ||
+      acpSelectionError !== null ||
+      (isAcpRegistry && environmentError !== null)
+    )
+      return;
 
     const config = configByDriver[driver] ?? {};
     const hasConfig = Object.keys(config).length > 0;
@@ -193,6 +285,16 @@ export function AddProviderInstanceDialog({
       enabled: true,
       ...(label.trim().length > 0 ? { displayName: label.trim() } : {}),
       ...(normalizedAccentColor ? { accentColor: normalizedAccentColor } : {}),
+      ...(isAcpRegistry && environmentVariables.length > 0
+        ? {
+            environment: environmentVariables.map((variable) => ({
+              name: variable.name,
+              value: variable.value,
+              sensitive: variable.sensitive,
+              ...(variable.valueRedacted ? { valueRedacted: true } : {}),
+            })),
+          }
+        : {}),
       ...(hasConfig ? { config } : {}),
     };
     // `ProviderInstanceId.make` revalidates the slug; we've already checked
@@ -248,7 +350,7 @@ export function AddProviderInstanceDialog({
             </div>
             <RadioGroup
               value={driver}
-              onValueChange={(value) => setDriver(ProviderDriverKind.make(value))}
+              onValueChange={handleDriverChange}
               aria-labelledby="add-instance-driver-label"
               className="grid grid-cols-1 gap-2 sm:grid-cols-2"
             >
@@ -302,7 +404,46 @@ export function AddProviderInstanceDialog({
             </RadioGroup>
           </div>
 
-          <label className={cn("grid gap-2", wizardStep !== 1 && "hidden")}>
+          {isAcpRegistry && wizardStep === 1 && !selectedAcp && !manualAcpConfiguration ? (
+            <AcpRegistrySearchStep
+              environmentId={environmentId}
+              providerInstances={settings.providerInstances ?? {}}
+              onPrepared={handleAcpPrepared}
+              onManualConfiguration={handleManualAcpConfiguration}
+            />
+          ) : null}
+
+          {isAcpRegistry && wizardStep === 1 && selectedAcp ? (
+            <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-3 py-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">{selectedAcp.name}</span>
+                  <span className="text-[11px] text-muted-foreground">v{selectedAcp.version}</span>
+                  <Badge variant="secondary" size="sm">
+                    {selectedAcp.distribution}
+                  </Badge>
+                </div>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {selectedAcp.description || "ACP-compatible coding agent."}
+                </p>
+              </div>
+              <Button type="button" size="xs" variant="outline" onClick={handleChooseAnotherAcp}>
+                Choose another
+              </Button>
+            </div>
+          ) : null}
+
+          {hasAttemptedSubmit && acpSelectionError ? (
+            <p className="text-xs text-destructive">{acpSelectionError}</p>
+          ) : null}
+
+          <label
+            className={cn(
+              "grid gap-2",
+              (wizardStep !== 1 || (isAcpRegistry && !selectedAcp && !manualAcpConfiguration)) &&
+                "hidden",
+            )}
+          >
             <span className="text-xs font-medium text-foreground">Label</span>
             <Input
               className="bg-background"
@@ -315,7 +456,13 @@ export function AddProviderInstanceDialog({
             </span>
           </label>
 
-          <label className={cn("grid gap-2", wizardStep !== 1 && "hidden")}>
+          <label
+            className={cn(
+              "grid gap-2",
+              (wizardStep !== 1 || (isAcpRegistry && !selectedAcp && !manualAcpConfiguration)) &&
+                "hidden",
+            )}
+          >
             <span className="text-xs font-medium text-foreground">Instance ID</span>
             <Input
               className="bg-background"
@@ -335,7 +482,13 @@ export function AddProviderInstanceDialog({
             )}
           </label>
 
-          <div className={cn("grid gap-2", wizardStep !== 1 && "hidden")}>
+          <div
+            className={cn(
+              "grid gap-2",
+              (wizardStep !== 1 || (isAcpRegistry && !selectedAcp && !manualAcpConfiguration)) &&
+                "hidden",
+            )}
+          >
             <span className="text-xs font-medium text-foreground">Accent color</span>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <input
@@ -384,6 +537,17 @@ export function AddProviderInstanceDialog({
 
           {driverSettingsFields.length > 0 ? (
             <div className={cn("grid gap-4", wizardStep !== 2 && "hidden")}>
+              {isAcpRegistry ? (
+                <div className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
+                  Registry agents are third-party programs with access to this environment. T3 Code
+                  verifies published checksums where available, but does not sandbox the agent.
+                  {selectedAcp?.id === "amp-acp" ? (
+                    <span className="mt-1 block font-medium text-foreground">
+                      amp-acp is a community adapter and is not maintained or endorsed by Amp.
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
               <ProviderSettingsForm
                 definition={driverOption}
                 value={configDraft}
@@ -391,6 +555,95 @@ export function AddProviderInstanceDialog({
                 variant="dialog"
                 onChange={setConfigDraft}
               />
+              {isAcpRegistry ? (
+                <div className="grid gap-2 border-t border-border/70 pt-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-foreground">Environment variables</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Mark credentials as secret so values are stored in the server secret store.
+                      </p>
+                    </div>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() =>
+                        setEnvironmentVariables((current) => [
+                          ...current,
+                          makeEnvironmentVariableDraft(),
+                        ])
+                      }
+                    >
+                      <PlusIcon className="size-3.5" /> Add
+                    </Button>
+                  </div>
+                  {environmentVariables.map((variable, index) => (
+                    <div
+                      key={variable.draftId}
+                      className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-2"
+                    >
+                      <Input
+                        aria-label={`Environment variable ${index + 1} name`}
+                        placeholder="VARIABLE_NAME"
+                        value={variable.name}
+                        onChange={(event) =>
+                          setEnvironmentVariables((current) =>
+                            current.map((entry, entryIndex) =>
+                              entryIndex === index ? { ...entry, name: event.target.value } : entry,
+                            ),
+                          )
+                        }
+                      />
+                      <Input
+                        aria-label={`Environment variable ${index + 1} value`}
+                        placeholder={variable.sensitive ? "Secret value" : "Value"}
+                        type={variable.sensitive ? "password" : "text"}
+                        value={variable.valueRedacted ? "" : variable.value}
+                        onChange={(event) =>
+                          setEnvironmentVariables((current) =>
+                            current.map((entry, entryIndex) =>
+                              entryIndex === index
+                                ? { ...entry, value: event.target.value, valueRedacted: false }
+                                : entry,
+                            ),
+                          )
+                        }
+                      />
+                      <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={variable.sensitive}
+                          onChange={(event) =>
+                            setEnvironmentVariables((current) =>
+                              current.map((entry, entryIndex) =>
+                                entryIndex === index
+                                  ? { ...entry, sensitive: event.target.checked }
+                                  : entry,
+                              ),
+                            )
+                          }
+                        />
+                        Secret
+                      </label>
+                      <Button
+                        aria-label={`Remove environment variable ${index + 1}`}
+                        size="icon-xs"
+                        variant="ghost"
+                        onClick={() =>
+                          setEnvironmentVariables((current) =>
+                            current.filter((_, entryIndex) => entryIndex !== index),
+                          )
+                        }
+                      >
+                        <Trash2Icon className="size-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                  {environmentError ? (
+                    <p className="text-[11px] text-destructive">{environmentError}</p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : wizardStep === 2 ? (
             <div className="grid gap-2">

@@ -1,6 +1,33 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { resolveWizardNavigation } from "./AddProviderInstanceDialog.logic";
+import {
+  deriveAvailableInstanceId,
+  isConfiguredAcpRegistryAgent,
+  resolveWizardNavigation,
+} from "./AddProviderInstanceDialog.logic";
+
+describe("ACP Registry provider identity", () => {
+  const derive = (label: string) => `acpRegistry_${label.toLowerCase().replaceAll(" ", "_")}`;
+
+  it("chooses a stable unused instance id without colliding with existing agents", () => {
+    expect(
+      deriveAvailableInstanceId(
+        derive,
+        "Amp ACP",
+        new Set(["acpRegistry_amp_acp", "acpRegistry_amp_acp_2"]),
+      ),
+    ).toBe("acpRegistry_amp_acp_3");
+  });
+
+  it("only treats the same ACP agent id as already configured", () => {
+    const instances = {
+      cursor: { driver: "cursor", config: { agentId: "amp-acp" } },
+      acp: { driver: "acpRegistry", config: { agentId: "other-agent" } },
+    };
+    expect(isConfiguredAcpRegistryAgent(instances, "amp-acp")).toBe(false);
+    expect(isConfiguredAcpRegistryAgent(instances, "other-agent")).toBe(true);
+  });
+});
 
 describe("resolveWizardNavigation", () => {
   const invalidId = { instanceIdError: "Instance ID is required." };

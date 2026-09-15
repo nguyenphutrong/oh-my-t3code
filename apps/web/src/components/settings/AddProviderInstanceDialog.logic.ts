@@ -6,6 +6,37 @@ const IDENTITY_STEP = 1;
 
 export const ADD_PROVIDER_WIZARD_STEPS = ["Driver", "Identity", "Config"] as const;
 
+export function deriveAvailableInstanceId(
+  derive: (label: string) => string,
+  label: string,
+  existing: ReadonlySet<string>,
+): string {
+  const base = derive(label);
+  if (!base || !existing.has(base)) return base;
+
+  for (let suffix = 2; ; suffix += 1) {
+    const suffixText = `_${suffix}`;
+    const candidate = `${base.slice(0, 64 - suffixText.length)}${suffixText}`;
+    if (!existing.has(candidate)) return candidate;
+  }
+}
+
+export function isConfiguredAcpRegistryAgent(
+  instances: Readonly<Record<string, { readonly driver: string; readonly config?: unknown }>>,
+  agentId: string,
+): boolean {
+  return Object.values(instances).some((instance) => {
+    if (
+      instance.driver !== "acpRegistry" ||
+      instance.config === null ||
+      typeof instance.config !== "object"
+    ) {
+      return false;
+    }
+    return (instance.config as Record<string, unknown>).agentId === agentId;
+  });
+}
+
 /**
  * Resolve navigation within the add-provider wizard.
  *

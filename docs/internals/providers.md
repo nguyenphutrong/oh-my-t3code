@@ -9,6 +9,32 @@ A driver kind identifies an integration; an instance identifies one configuratio
 lifecycle. Route work by instance, so two accounts using the same driver do not share mutable
 session or catalog state.
 
+## Generic ACP Registry boundary
+
+The [ACP Registry catalog](../../apps/server/src/provider/acp/AcpRegistrySupport.ts) is a
+server-lifetime service shared by RPC discovery and provider hydration. It accepts only the
+published registry schema, bounded HTTPS responses without credentials, exact package versions,
+and platform-specific distributions. Managed archives are checksum-verified and extracted with
+path, link, and size checks into an atomic version directory. Registry metadata never becomes a
+shell command: executable and argument vectors remain separate through process spawn.
+
+The [registry driver](../../apps/server/src/provider/Drivers/AcpRegistryDriver.ts) resolves one
+configured agent and creates the [generic ACP adapter](../../apps/server/src/provider/Layers/GenericAcpAdapter.ts).
+The adapter owns process/session scopes and normalizes ACP content, plans, tool updates, and
+permission requests into provider runtime events. Files are constrained to ACP-requested text
+operations; terminals have concurrency, retained-process, and output limits. A process exit closes
+only its session, so it cannot fail the provider registry or another provider instance.
+
+Health checks stop after `initialize`: they must not create a session, start MCP servers, or trigger
+interactive authentication. Session startup first tries the ACP operation and authenticates only
+after the standard `-32000` auth-required response. Existing Cursor, Grok, and Antigravity adapters
+keep their provider-specific eager authentication behavior.
+
+ACP capabilities are negotiated at runtime. Unsupported snapshot/rollback and structured
+elicitation operations return explicit adapter validation errors; they are not emulated. Generic
+ACP image blocks are capped at 8 MiB. Registry agents remain trusted local programs rather than a
+sandbox boundary.
+
 ## Process and account isolation
 
 T3-managed OpenCode chat uses one server per thread. Its MCP registrations are directory-scoped, while

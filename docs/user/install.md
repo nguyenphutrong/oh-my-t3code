@@ -67,14 +67,15 @@ and enable the provider you want. Installation, login, and configuration belong
 to that environment's machine, even when you connect from a phone or another
 computer.
 
-| Provider    | Install and authenticate                                                                     |
-| ----------- | -------------------------------------------------------------------------------------------- |
-| Codex       | Install [Codex CLI](https://developers.openai.com/codex/cli), then run `codex login`.        |
-| Claude      | Install [Claude Code](https://claude.com/product/claude-code), then run `claude auth login`. |
-| Cursor      | Install [Cursor CLI](https://cursor.com/cli), then run `agent login`.                        |
-| Grok Build  | Install [Grok Build CLI](https://x.ai/cli), then run `grok login`.                           |
-| OpenCode    | Install [OpenCode](https://opencode.ai), then run `opencode auth login`.                     |
-| Antigravity | Install and sign in with Google from T3 Code's provider settings.                            |
+| Provider     | Install and authenticate                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| Codex        | Install [Codex CLI](https://developers.openai.com/codex/cli), then run `codex login`.        |
+| Claude       | Install [Claude Code](https://claude.com/product/claude-code), then run `claude auth login`. |
+| Cursor       | Install [Cursor CLI](https://cursor.com/cli), then run `agent login`.                        |
+| Grok Build   | Install [Grok Build CLI](https://x.ai/cli), then run `grok login`.                           |
+| OpenCode     | Install [OpenCode](https://opencode.ai), then run `opencode auth login`.                     |
+| Antigravity  | Install and sign in with Google from T3 Code's provider settings.                            |
+| ACP Registry | Choose a compatible agent in **Add provider → ACP Registry**.                                |
 
 Provider CLIs must be on the server's `PATH`. If T3 Code cannot find one, set its
 **Binary path** in provider settings, especially when using a version manager.
@@ -92,6 +93,32 @@ Add another provider instance for a separate account or configuration. Each
 instance can have its own environment variables, such as API keys or a custom
 base URL. Mark secret values as sensitive; after saving, T3 Code does not display
 their original values.
+
+### ACP Registry agents
+
+Choose **Add provider → ACP Registry** to search the official ACP Registry. T3
+Code selects a distribution for the environment and can prepare pinned `npx` or
+`uvx` packages or download a platform binary. Registry binaries are accepted only
+after their published SHA-256 checksum matches. You can instead configure an
+installed executable, launch arguments, and environment variables. Use **Refresh
+provider status** after saving to run the bounded ACP initialization health check.
+
+Registry agents are third-party programs with the same local access as their T3
+Code process; they are not sandboxed. Review the source and publisher before
+installing one. T3 Code validates registry metadata and package locations, but a
+valid checksum proves integrity, not trustworthiness.
+
+The registry currently lists `amp-acp`, which is a community wrapper around Amp
+Code. It is not maintained or endorsed by Amp. It uses the Amp authentication
+already available to its process; T3 Code does not copy or display Amp
+credentials. Its ACP implementation supports text streaming, tools, sessions,
+cancellation, and modes, but granular permission handling is partial and its
+advertised image input is not currently reliable. T3 Code labels it accordingly
+rather than presenting it as a native Amp integration.
+
+Provider setup is managed by the web or desktop client on the selected
+environment. Mobile uses configured ACP providers for threads, but does not
+install or edit provider instances.
 
 For provider-specific setup and accounts, see [Codex](./providers-codex.md),
 [Claude](./providers-claude.md), [OpenCode](./providers-opencode.md), and
