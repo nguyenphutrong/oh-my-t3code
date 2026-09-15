@@ -554,7 +554,7 @@ const reconcileDesiredCloudLinkWith = Effect.fn("environment.cloud.reconcileDesi
           onNone: () =>
             Effect.fail(
               new EnvironmentHttpUnauthorizedError({
-                message: "Run `t3 connect link` to authorize this environment.",
+                message: "Run `oh-my-t3code connect link` to authorize this environment.",
               }),
             ),
           onSome: Effect.succeed,

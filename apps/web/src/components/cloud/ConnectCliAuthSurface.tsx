@@ -37,7 +37,7 @@ const invalidLinkMessage = {
   eyebrow: "Authorization request",
   title: "This connect link is incomplete",
   description:
-    "The link is missing its authorization request. Re-run `t3 connect` in your terminal and open the freshly printed URL.",
+    "The link is missing its authorization request. Re-run `oh-my-t3code connect` in your terminal and open the freshly printed URL.",
 } as const;
 
 /**
