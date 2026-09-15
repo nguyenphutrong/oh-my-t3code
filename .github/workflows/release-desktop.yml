@@ -77,19 +77,23 @@ on:
       # relay state is expected. PR previews carry no tracing config.
       relay_client_tracing:
         required: false
-        default: true
+        default: false
         type: boolean
       clerk_publishable_key:
-        required: true
+        required: false
+        default: ""
         type: string
       clerk_jwt_template:
-        required: true
+        required: false
+        default: ""
         type: string
       clerk_cli_oauth_client_id:
-        required: true
+        required: false
+        default: ""
         type: string
       relay_url:
-        required: true
+        required: false
+        default: ""
         type: string
 
 permissions:
@@ -380,7 +384,7 @@ jobs:
           elif [[ "${{ inputs.platform }}" == "win" ]]; then
             # Embed the Linux CLI archive built by the same-arch Linux job as
             # the WSL runtime. Required for a working WSL backend on Windows.
-            args+=(--wsl-runtime "$GITHUB_WORKSPACE"/wsl-runtime/t3-*-linux-${{ inputs.arch }}.tar.gz)
+            args+=(--wsl-runtime "$GITHUB_WORKSPACE"/wsl-runtime/oh-my-t3code-*-linux-${{ inputs.arch }}.tar.gz)
             if has_all \
               "$AZURE_TENANT_ID" \
               "$AZURE_CLIENT_ID" \

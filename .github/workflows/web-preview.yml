@@ -7,7 +7,7 @@ name: Web Preview
 #
 # The build intentionally omits the T3 Connect cloud config (Clerk keys, relay
 # URL): previews boot as the hosted-static app with manual pairing only. Pair a
-# server into a preview with `t3 pair --tailscale` (or any reachable HTTPS
+# server into a preview with `oh-my-t3code pair --tailscale` (or any reachable HTTPS
 # backend) and open the pairing URL against the preview origin.
 #
 # The preview must be opened at the exact deployment URL from the PR comment.
@@ -37,7 +37,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.labels.*.name, 'preview:web') &&
       (github.event.action != 'labeled' || github.event.label.name == 'preview:web')
-    runs-on: blacksmith-8vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -103,7 +103,7 @@ jobs:
               `${process.env.DEPLOYMENT_URL} (for ${process.env.HEAD_SHA.slice(0, 7)})`,
               "",
               "Open this exact URL — the hosted-app origin is baked in at build time.",
-              "Pair a server into it with `t3 pair --tailscale`, or paste a host + pairing",
+              "Pair a server into it with `oh-my-t3code pair --tailscale`, or paste a host + pairing",
               "code under Settings → Connections.",
             ].join("\n");
 

@@ -6,7 +6,7 @@ name: Mobile EAS Production
 # fingerprint (platform-specific deps + pnpm version) and errors. On this Linux
 # runner, with corepack pinning pnpm 10.24 in eas.json, local == build.
 #
-# Every merge to main that touches the mobile app reconciles, per platform:
+# A manual run reconciles, per platform:
 #   1. Store builds: if the latest production build's version differs from
 #      app.config.ts, cut a new build and submit it (TestFlight + Play internal
 #      track). Bumping `version` is therefore all it takes to
@@ -22,8 +22,7 @@ name: Mobile EAS Production
 #      it too. When native drift means no binary could install the update,
 #      it is skipped and flagged in the job summary instead of published
 #      into the void.
-# workflow_dispatch remains as a manual override for both modes (e.g. to
-# retry an errored build or force an OTA).
+# Mobile production remains manual until this fork owns its Expo and store configuration.
 on:
   workflow_dispatch:
     inputs:
@@ -52,19 +51,6 @@ on:
         description: "OTA update message (mode=update only)"
         required: false
         type: string
-  push:
-    branches: [main]
-    paths:
-      - apps/mobile/**
-      - packages/client-runtime/**
-      - packages/contracts/**
-      - packages/shared/**
-      - assets/**
-      - scripts/**
-      - patches/**
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - .github/workflows/mobile-eas-production.yml
 
 # Serialize runs so OTAs publish in merge order. GitHub keeps at most one
 # queued run per group, so a burst of merges collapses into one run of the
@@ -75,8 +61,8 @@ concurrency:
 
 jobs:
   production:
-    name: EAS Production ${{ github.event_name == 'push' && 'auto' || inputs.mode }}
-    runs-on: blacksmith-8vcpu-ubuntu-2404
+    name: EAS Production ${{ inputs.mode }}
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     env:
