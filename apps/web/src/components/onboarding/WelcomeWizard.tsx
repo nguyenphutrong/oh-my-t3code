@@ -47,6 +47,7 @@ import {
   selectOnboardingProvidersByDriver,
 } from "../../onboarding/providerReadiness.logic";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import { APP_BASE_NAME } from "../../branding";
 import { newProjectId, randomUUID } from "../../lib/utils";
 import { agentSessionImport } from "../../state/agentSessions";
 import { readProjects, useProjects } from "../../state/entities";
@@ -63,7 +64,6 @@ import { getDriverOption } from "../settings/providerDriverMeta";
 import { TerminalViewport } from "../ThreadTerminalDrawer";
 import { CloudEnvironmentConnectRows } from "../cloud/CloudEnvironmentConnectList";
 import { ClaudeAI, OpenAI } from "../Icons";
-import { T3Wordmark } from "../T3Wordmark";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
@@ -189,13 +189,14 @@ export function WelcomeWizard({
         initialFocus={() => document.getElementById("onboarding-pairing-url") ?? true}
       >
         <WizardHeader
-          title="Set up T3 Code"
+          title={`Set up ${APP_BASE_NAME}`}
           identity={
-            <div className="flex items-baseline gap-1.5" role="img" aria-label="T3 Code">
-              <T3Wordmark className="h-4 w-auto shrink-0" aria-hidden />
-              <span className="text-[1.4rem] font-medium tracking-tight text-muted-foreground">
-                Code
-              </span>
+            <div
+              className="text-[1.4rem] font-medium tracking-tight text-muted-foreground"
+              role="img"
+              aria-label={APP_BASE_NAME}
+            >
+              {APP_BASE_NAME}
             </div>
           }
         >
@@ -477,7 +478,7 @@ function ConnectAccountOption({
           </p>
           <CommandBlock command="oh-my-t3code connect" className="mt-3" />
           <p className="mt-3 text-xs text-muted-foreground">
-            Keep T3 Code running. Select the computers you want to set up above.
+            Keep {APP_BASE_NAME} running. Select the computers you want to set up above.
           </p>
         </div>
       </CollapsiblePanel>
