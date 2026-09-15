@@ -34,7 +34,7 @@ consumed by the desktop app.
 
 - Product name: `Oh My T3Code`
 - CLI, archive prefix, and executable: `oh-my-t3code`
-- Desktop app ID: `com.nguyenphutrong.ohmyt3code`
+- Desktop app ID: `app.bytrong.ohmyt3code`
 - Default data directory: `~/.oh-my-t3code`
 - Release repository: `nguyenphutrong/oh-my-t3code`
 
@@ -56,7 +56,7 @@ For signed and notarized macOS artifacts, configure:
 - repository variable `APPLE_TEAM_ID`
 
 The Apple Developer App ID and provisioning profile must belong to
-`com.nguyenphutrong.ohmyt3code`. Configure `CLERK_PASSKEY_RP_DOMAINS` only after the fork owns the
+`app.bytrong.ohmyt3code`. Configure `CLERK_PASSKEY_RP_DOMAINS` only after the fork owns the
 corresponding Clerk and associated-domain setup.
 
 For signed Windows artifacts, configure:

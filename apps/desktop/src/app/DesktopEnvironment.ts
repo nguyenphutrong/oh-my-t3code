@@ -233,7 +233,7 @@ const make = Effect.fn("desktop.environment.make")(function* (
     branding,
     displayName,
     appUserModelId: Option.getOrElse(config.appUserModelIdOverride, () =>
-      isDevelopment ? "com.nguyenphutrong.ohmyt3code.dev" : "com.nguyenphutrong.ohmyt3code",
+      isDevelopment ? "app.bytrong.ohmyt3code.dev" : "app.bytrong.ohmyt3code",
     ),
     linuxDesktopEntryName: resolveLinuxDesktopEntryName(isDevelopment),
     linuxWmClass: isDevelopment ? "oh-my-t3code-dev" : "oh-my-t3code",

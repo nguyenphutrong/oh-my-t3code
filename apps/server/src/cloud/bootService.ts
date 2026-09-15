@@ -39,8 +39,8 @@ import {
 const BOOT_SERVICE_NAME = "oh-my-t3code";
 const BOOT_SERVICE_UNIT_FILE = `${BOOT_SERVICE_NAME}.service`;
 // `.service` suffix keeps the label distinct from the desktop app's bundle id
-// (com.nguyenphutrong.ohmyt3code), so launchd and TCC records never collide.
-const BOOT_SERVICE_LAUNCHD_LABEL = "com.nguyenphutrong.ohmyt3code.service";
+// (app.bytrong.ohmyt3code), so launchd and TCC records never collide.
+const BOOT_SERVICE_LAUNCHD_LABEL = "app.bytrong.ohmyt3code.service";
 const BOOT_SERVICE_PLIST_FILE = `${BOOT_SERVICE_LAUNCHD_LABEL}.plist`;
 const BOOT_SERVICE_UNIT_ENV = "T3_BOOT_SERVICE_UNIT";
 

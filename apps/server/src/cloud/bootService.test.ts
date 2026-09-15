@@ -81,7 +81,7 @@ const macPlan = {
   program: [macRuntime, "__service-launcher"],
   baseDir: "/Users/theo/.oh-my-t3code",
   logPath: "/Users/theo/.oh-my-t3code/userdata/logs/boot-service.log",
-  unitPath: "/Users/theo/Library/LaunchAgents/com.nguyenphutrong.ohmyt3code.service.plist",
+  unitPath: "/Users/theo/Library/LaunchAgents/app.bytrong.ohmyt3code.service.plist",
 };
 const macInstallerPath =
   "/opt/homebrew/bin:/Users/theo/.npm-global/bin:/Users/theo/.nvm/versions/node/v22.16.0/bin:/usr/bin:/bin";
@@ -458,7 +458,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
                 "systemctl --user restart oh-my-t3code.service",
               ]
             : [
-                "launchctl bootout --wait gui/501/com.nguyenphutrong.ohmyt3code.service",
+                "launchctl bootout --wait gui/501/app.bytrong.ohmyt3code.service",
                 `launchctl bootstrap gui/501 ${plan.unitPath}`,
               ],
         );
@@ -701,7 +701,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
 
       expect(
         plan.unitPath.endsWith(
-          path.join("Library", "LaunchAgents", "com.nguyenphutrong.ohmyt3code.service.plist"),
+          path.join("Library", "LaunchAgents", "app.bytrong.ohmyt3code.service.plist"),
         ),
       ).toBe(true);
       expect(yield* fs.readFileString(plan.unitPath)).toContain(
@@ -724,7 +724,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
       // A bootout can block up to the plist's 90s ExitTimeOut; the runner's
       // 60s default would cancel it and let bootstrap race a loaded job.
       expect(
-        timeouts.get("launchctl bootout --wait gui/501/com.nguyenphutrong.ohmyt3code.service"),
+        timeouts.get("launchctl bootout --wait gui/501/app.bytrong.ohmyt3code.service"),
       ).toEqual(Duration.seconds(120));
     }),
   );
@@ -740,8 +740,8 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
       const error = yield* service.install().pipe(Effect.flip);
       expect(error._tag).toBe("BootServiceCommandError");
       expect(commands.filter((command) => command.startsWith("launchctl "))).toEqual([
-        "launchctl bootout --wait gui/501/com.nguyenphutrong.ohmyt3code.service",
-        "launchctl enable gui/501/com.nguyenphutrong.ohmyt3code.service",
+        "launchctl bootout --wait gui/501/app.bytrong.ohmyt3code.service",
+        "launchctl enable gui/501/app.bytrong.ohmyt3code.service",
         `launchctl bootstrap gui/501 ${plistPath}`,
         `launchctl bootstrap gui/501 ${plistPath}`,
       ]);
@@ -803,8 +803,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
     Effect.gen(function* () {
       const { service, control } = yield* makeHarness("darwin");
       yield* service.install();
-      control.failCommand =
-        "launchctl bootout --wait gui/501/com.nguyenphutrong.ohmyt3code.service";
+      control.failCommand = "launchctl bootout --wait gui/501/app.bytrong.ohmyt3code.service";
 
       yield* service.install();
       expect((yield* service.status).current).toBe(true);
@@ -836,7 +835,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         );
         expect(serviceStateHasPendingUpdate(yield* fs.readFileString(statePath))).toBe(true);
         expect(commands.filter((command) => command.startsWith("launchctl "))).toEqual([
-          "launchctl bootout --wait gui/501/com.nguyenphutrong.ohmyt3code.service",
+          "launchctl bootout --wait gui/501/app.bytrong.ohmyt3code.service",
           `launchctl bootstrap gui/501 ${plistPath}`,
         ]);
       }

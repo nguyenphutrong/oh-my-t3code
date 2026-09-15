@@ -17,8 +17,8 @@ const devBundleIdSuffix = NodePath.basename(repoRoot)
   .replaceAll(/[^a-z0-9]+/g, "");
 const APP_DISPLAY_NAME = isDevelopment ? "Oh My T3Code (Dev)" : "Oh My T3Code (Alpha)";
 const APP_BUNDLE_ID = isDevelopment
-  ? `com.nguyenphutrong.ohmyt3code.dev.${devBundleIdSuffix || "local"}`
-  : "com.nguyenphutrong.ohmyt3code";
+  ? `app.bytrong.ohmyt3code.dev.${devBundleIdSuffix || "local"}`
+  : "app.bytrong.ohmyt3code";
 const APP_PROTOCOL_SCHEMES = isDevelopment ? ["oh-my-t3code-dev"] : ["oh-my-t3code"];
 const LAUNCHER_VERSION = 19;
 const developmentMacIconPngPath = NodePath.join(

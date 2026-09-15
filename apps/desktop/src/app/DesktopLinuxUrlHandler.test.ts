@@ -23,7 +23,7 @@ const makeEnvironment = (overrides: Record<string, unknown> = {}) =>
     isPackaged: true,
     isDevelopment: false,
     displayName: "Oh My T3Code (Alpha)",
-    linuxDesktopEntryName: "com.nguyenphutrong.OhMyT3Code.desktop",
+    linuxDesktopEntryName: "app.bytrong.ohmyt3code.desktop",
     linuxWmClass: "oh-my-t3code",
     linuxApplicationsDir: "/home/alice/.local/share/applications",
     appImagePath: Option.some("/home/alice/Applications/Oh-My-T3Code.AppImage"),
@@ -131,8 +131,7 @@ describe("DesktopLinuxUrlHandler", () => {
     const writeError = new DesktopLinuxUrlHandler.DesktopLinuxUrlHandlerRegistrationError({
       step: "write-desktop-entry",
       scheme: "oh-my-t3code",
-      desktopEntryPath:
-        "/home/alice/.local/share/applications/com.nguyenphutrong.OhMyT3Code.desktop",
+      desktopEntryPath: "/home/alice/.local/share/applications/app.bytrong.ohmyt3code.desktop",
       cause: new Error("boom"),
     });
     assert.equal(
@@ -141,7 +140,7 @@ describe("DesktopLinuxUrlHandler", () => {
     );
     assert.equal(
       writeError.desktopEntryPath,
-      "/home/alice/.local/share/applications/com.nguyenphutrong.OhMyT3Code.desktop",
+      "/home/alice/.local/share/applications/app.bytrong.ohmyt3code.desktop",
     );
 
     const exitError = new DesktopLinuxUrlHandler.DesktopLinuxUrlHandlerRegistrationError({
@@ -165,7 +164,7 @@ describe("DesktopLinuxUrlHandler", () => {
       assert.equal(recorded.files.length, 1);
       assert.equal(
         recorded.files[0]?.path,
-        "/home/alice/.local/share/applications/com.nguyenphutrong.OhMyT3Code.desktop",
+        "/home/alice/.local/share/applications/app.bytrong.ohmyt3code.desktop",
       );
       assert.include(
         recorded.files[0]?.content,
@@ -175,11 +174,7 @@ describe("DesktopLinuxUrlHandler", () => {
       assert.deepEqual(recorded.commands, [
         {
           command: "xdg-mime",
-          args: [
-            "default",
-            "com.nguyenphutrong.OhMyT3Code.desktop",
-            "x-scheme-handler/oh-my-t3code",
-          ],
+          args: ["default", "app.bytrong.ohmyt3code.desktop", "x-scheme-handler/oh-my-t3code"],
         },
       ]);
     });
@@ -225,14 +220,14 @@ describe("DesktopLinuxUrlHandler", () => {
       yield* runRegister(unpackaged, {
         environment: {
           isPackaged: false,
-          linuxDesktopEntryName: "com.nguyenphutrong.OhMyT3Code.Development.desktop",
+          linuxDesktopEntryName: "app.bytrong.ohmyt3code.Development.desktop",
         },
       });
 
       assert.deepEqual(nonLinux.files, []);
       assert.equal(
         unpackaged.files[0]?.path,
-        "/home/alice/.local/share/applications/com.nguyenphutrong.OhMyT3Code.Development.desktop",
+        "/home/alice/.local/share/applications/app.bytrong.ohmyt3code.Development.desktop",
       );
       assert.deepEqual(unpackaged.commands, []);
     });
@@ -250,8 +245,7 @@ describe("DesktopLinuxUrlHandler", () => {
           module: "FileSystem",
           method: "writeFileString",
           description: "read-only filesystem",
-          pathOrDescriptor:
-            "/home/alice/.local/share/applications/com.nguyenphutrong.OhMyT3Code.desktop",
+          pathOrDescriptor: "/home/alice/.local/share/applications/app.bytrong.ohmyt3code.desktop",
         }),
       });
 

@@ -32,9 +32,7 @@ export interface EarlyLinuxElectronOptions {
 }
 
 export const resolveLinuxDesktopEntryName = (isDevelopment: boolean): string =>
-  isDevelopment
-    ? "com.nguyenphutrong.OhMyT3Code.Development.desktop"
-    : "com.nguyenphutrong.OhMyT3Code.desktop";
+  isDevelopment ? "app.bytrong.ohmyt3code.Development.desktop" : "app.bytrong.ohmyt3code.desktop";
 
 const trimNonEmpty = (value: string | undefined): string | null => {
   const trimmed = value?.trim();
