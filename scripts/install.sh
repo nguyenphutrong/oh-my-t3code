@@ -1,29 +1,29 @@
 #!/bin/sh
-# Installs the T3 Code CLI from a GitHub Release archive. Needs only sh, tar,
+# Installs the Oh My T3Code CLI from a GitHub Release archive. Needs only sh, tar,
 # sha256sum or shasum, and curl or wget; no Node, npm, or compiler.
 #
-#   curl -fsSL https://t3.codes/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.sh | sh
 #
 # Environment:
 #   T3CODE_CHANNEL           release train to follow: stable, nightly, or preview
 #                            (default: stable; preview is a maintainers' test train)
 #   T3CODE_VERSION           exact version to install (overrides T3CODE_CHANNEL)
-#   T3CODE_HOME              T3 home directory (default: ~/.t3)
-#   T3CODE_INSTALL_BIN_DIR   where the `t3` symlink goes (default: ~/.local/bin)
+#   T3CODE_HOME              app home directory (default: ~/.oh-my-t3code)
+#   T3CODE_INSTALL_BIN_DIR   where the `oh-my-t3code` symlink goes (default: ~/.local/bin)
 #   T3CODE_RELEASE_BASE_URL  mirror for releases/download (default: GitHub)
 #
 # The archive is unpacked into $T3CODE_HOME/runtime/versions/<version>, the
-# same layout `t3 service install` uses, so the service reuses this download
+# same layout `oh-my-t3code service install` uses, so the service reuses this download
 # instead of fetching the release again.
 set -eu
 
-repo="pingdotgg/t3code"
+repo="nguyenphutrong/t3code"
 base_url="${T3CODE_RELEASE_BASE_URL:-https://github.com/${repo}/releases/download}"
-t3_home="${T3CODE_HOME:-$HOME/.t3}"
+t3_home="${T3CODE_HOME:-$HOME/.oh-my-t3code}"
 bin_dir="${T3CODE_INSTALL_BIN_DIR:-$HOME/.local/bin}"
 
 fail() {
-  printf 't3 install: %s\n' "$1" >&2
+  printf 'oh-my-t3code install: %s\n' "$1" >&2
   exit 1
 }
 
@@ -84,7 +84,7 @@ fi
 case "$version" in
   *-preview.*)
     printf '%s\n' \
-      "t3 ${version} is a preview build." \
+      "oh-my-t3code ${version} is a preview build." \
       "  Preview builds are cut by maintainers from unreleased branches to exercise the release" \
       "  pipeline. They can be broken, receive no fixes, and are never offered as updates." \
       "  Set T3CODE_CHANNEL=stable (the default) for a supported build." >&2
@@ -94,13 +94,13 @@ case "$version" in
     ;;
 esac
 
-stem="t3-${version}-${platform}-${arch}"
+stem="oh-my-t3code-${version}-${platform}-${arch}"
 archive="${stem}.tar.gz"
 versions_dir="${t3_home}/runtime/versions"
 target_dir="${versions_dir}/${version}"
 
 if [ -f "${target_dir}/.install-complete" ] && [ "$(cat "${target_dir}/.install-complete")" = "$version" ]; then
-  printf 't3 %s is already installed at %s\n' "$version" "$target_dir"
+  printf 'oh-my-t3code %s is already installed at %s\n' "$version" "$target_dir"
 else
   mkdir -p "$versions_dir"
   staging="$(mktemp -d "${versions_dir}/.staging-XXXXXX")"
@@ -110,7 +110,7 @@ else
   fetch_status=0
   fetch "${base_url}/v${version}/SHA256SUMS" "${staging}/SHA256SUMS" || fetch_status=$?
   if [ "$fetch_status" -eq 44 ]; then
-    fail "t3 ${version} has no release archive for ${platform}-${arch}; releases before the self-contained CLI can only be installed with \`npm install -g t3@${version}\`"
+    fail "oh-my-t3code ${version} has no release archive for ${platform}-${arch}"
   elif [ "$fetch_status" -ne 0 ]; then
     fail "could not download the release checksums"
   fi
@@ -123,7 +123,7 @@ else
 
   tar -xzf "${staging}/${archive}" -C "$staging" --strip-components=1
   rm -f "${staging}/${archive}" "${staging}/SHA256SUMS"
-  "${staging}/t3" --version >/dev/null || fail "the downloaded executable does not run"
+  "${staging}/oh-my-t3code" --version >/dev/null || fail "the downloaded executable does not run"
   printf '%s\n' "$version" > "${staging}/.install-complete"
 
   rm -rf "$target_dir"
@@ -132,9 +132,9 @@ else
 fi
 
 mkdir -p "$bin_dir"
-ln -sfn "${target_dir}/t3" "${bin_dir}/t3"
-printf 'Installed t3 %s\n  %s -> %s\n' "$version" "${bin_dir}/t3" "${target_dir}/t3"
+ln -sfn "${target_dir}/oh-my-t3code" "${bin_dir}/oh-my-t3code"
+printf 'Installed oh-my-t3code %s\n  %s -> %s\n' "$version" "${bin_dir}/oh-my-t3code" "${target_dir}/oh-my-t3code"
 case ":${PATH}:" in
   *":${bin_dir}:"*) ;;
-  *) printf 'Add %s to your PATH to run `t3`.\n' "$bin_dir" ;;
+  *) printf 'Add %s to your PATH to run `oh-my-t3code`.\n' "$bin_dir" ;;
 esac

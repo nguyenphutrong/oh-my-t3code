@@ -84,7 +84,7 @@ export default mergeConfig(
       ...(packExecutable
         ? {
             exe: {
-              fileName: "t3",
+              fileName: "oh-my-t3code",
               outDir: "dist-exe",
               ...(packExecutableTargets ? { targets: packExecutableTargets } : {}),
               // Node's SEA docs: `import()` does not work when useCodeCache is
