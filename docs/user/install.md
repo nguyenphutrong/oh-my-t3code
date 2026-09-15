@@ -1,54 +1,56 @@
-# Install T3 Code
+# Install Oh My T3Code
 
-T3 Code runs coding agents on your computer and lets you control them from its
-desktop, web, or mobile app. Set up the machine where the agents will work first.
+Oh My T3Code runs coding agents on your computer and lets you control them from its
+desktop or local web app. Set up the machine where the agents will work first.
 
 ## Requirements
 
-`npx t3` needs Node.js only to run npm itself; the CLI it installs is a
-self-contained executable. SSH hosts and WSL backends need Node.js 22.16+
+The released CLI is a self-contained executable and does not require Node.js.
+SSH hosts and WSL backends need Node.js 22.16+
 (22.x), 23.11+ (23.x), or 24.10 and later. The native desktop app includes its
 server runtime.
 
 You need an installed, authenticated provider before starting a thread. You can
 launch T3 Code and configure providers afterwards.
 
-## Run without installing
+## CLI
 
-```bash
-npx t3@latest
+Install the latest self-contained CLI on macOS or Linux:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.sh | sh
 ```
 
-This starts the server and opens the local web app. Run
-`npx t3@latest --help` for command-line options.
+On Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.ps1 | iex
+```
+
+Run `oh-my-t3code` to start the server and open the local web app. Run
+`oh-my-t3code --help` for command-line options.
 
 The executable is built for Apple Silicon Macs, Linux, and Windows. There is
 no Intel Mac build of it, because Node cannot produce a single executable for
 that platform; the Intel desktop app is unaffected. To run a standalone server
 on an Intel Mac, build it from source. You need Node.js 24 and `vp` (see
-[Install vp](https://github.com/pingdotgg/t3code#install-vp)):
+[Install vp](https://github.com/nguyenphutrong/t3code#install-vp)):
 
 ```bash
-git clone https://github.com/pingdotgg/t3code
+git clone https://github.com/nguyenphutrong/t3code
 cd t3code && vp i && vp run build:desktop
 node apps/server/dist/bin.mjs
 ```
 
-A server run this way is a plain Node program: `t3 update` and the background
+A server run this way is a plain Node program: `oh-my-t3code update` and the background
 service do not apply, so update it with `git pull` and a rebuild, and start it
 however you run other Node processes.
 
 ## Desktop app
 
-Download a release from [GitHub Releases](https://github.com/pingdotgg/t3code/releases),
-or use a package manager:
-
-| Platform           | Install                         |
-| ------------------ | ------------------------------- |
-| Windows            | `winget install T3Tools.T3Code` |
-| macOS              | `brew install --cask t3-code`   |
-| Arch Linux         | `yay -S t3code-bin`             |
-| Arch Linux nightly | `yay -S t3code-nightly-bin`     |
+Download an installer from this fork's
+[GitHub Releases](https://github.com/nguyenphutrong/t3code/releases). Package-manager releases are
+not available yet. Unsigned builds may show the operating system's normal warning.
 
 ### Windows Subsystem for Linux
 
@@ -62,27 +64,18 @@ update can take longer.
 With the desktop app already running on the same machine:
 
 ```bash
-npx t3 app
+oh-my-t3code app
 ```
 
 This opens a new thread for the current directory, adding the project if needed.
-Pass a path, such as `npx t3 app ../my-project`, to open another directory. It requires
+Pass a path, such as `oh-my-t3code app ../my-project`, to open another directory. It requires
 the desktop app, so a standalone server or an SSH session is not enough. If the
 command cannot reach the app, start or update the desktop app and try again.
 
 ## Mobile app
 
-Install T3 Code from the
-[App Store](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824) or
-[Google Play](https://play.google.com/store/apps/details?id=com.t3tools.t3code).
-The phone connects to a server on another machine. Follow
-[remote access](./remote-access.md) to link it through T3 Connect or a pairing URL.
-
-If the app crashes during launch, open Settings → Diagnostics on the next launch
-that succeeds. It lists startup crashes from the last 7 days with the error and
-component stack that store crash reports leave out. Copy the report and paste it
-into a GitHub issue. Error messages can quote values from the app, so read it over
-before sharing.
+This fork does not currently publish an iOS or Android app. Mobile store links for upstream T3
+Code install a separate product and are not a supported Oh My T3Code release surface.
 
 ## Providers
 

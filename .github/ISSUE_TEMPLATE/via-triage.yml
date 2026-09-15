@@ -1,12 +1,12 @@
 name: Triage report
-description: Filed with `npx t3 triage`, where a coding agent investigated the machine. For hand-written reports use the bug report template instead.
+description: Filed with `oh-my-t3code triage`, where a coding agent investigated the machine. For hand-written reports use the bug report template instead.
 labels:
   - via-triage
 body:
   - type: markdown
     attributes:
       value: |
-        This structure is what `t3 triage` agents follow. Keep one problem per issue
+        This structure is what `oh-my-t3code triage` agents follow. Keep one problem per issue
         and redact secrets and home directory paths from anything you paste.
 
   - type: textarea

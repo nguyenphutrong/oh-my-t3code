@@ -1,4 +1,4 @@
-# Updating T3 Code
+# Updating Oh My T3Code
 
 The app you use and the server running your agents can be on different machines.
 When a server is behind your web or desktop app, an update notice appears in the
@@ -34,16 +34,16 @@ The offered action depends on how the server runs:
 For a background service, run the matching version's CLI on the host:
 
 ```sh
-npx t3@<client-version> service update
+oh-my-t3code update <client-version>
 ```
 
 Replace `<client-version>` with the version shown in the notice. Using
-`@latest` only resolves the mismatch if your client is on that release. An older
-service launcher may require this local update before it supports remote updates
-and rollback.
+`oh-my-t3code update` without a version follows the current release channel and only resolves the
+mismatch if your client is on that release. An older service launcher may require this local update
+before it supports remote updates and rollback.
 
-For a foreground server, the copied command is `npx t3@<client-version>`. Add
-`serve` if you normally run without a browser, and preserve options such as
+For a foreground server, run `oh-my-t3code update <client-version>`, stop the old process, and
+relaunch `oh-my-t3code`. Add `serve` if you normally run without a browser, and preserve options such as
 `--host` or `--tailscale-serve`. See
 [background services](./background-service.md) for service management.
 
@@ -58,8 +58,4 @@ update can roll back to the previous version. If the update still fails:
 
 ## Mobile updates
 
-Install App Store or Google Play releases as usual. The mobile app can also
-download updates in the background and apply them when you next leave the app.
-It saves drafts and queued messages before restarting. If you keep the app open
-for a long time, it may ask to install immediately; choosing **Later** leaves the
-update queued for the next suitable moment.
+This fork does not currently publish mobile-store releases.

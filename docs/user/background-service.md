@@ -1,4 +1,4 @@
-# Running T3 Code in the background
+# Running Oh My T3Code in the background
 
 On Linux and macOS, T3 Code can run as a service for your user so you do not need
 to keep a terminal open.
@@ -7,18 +7,18 @@ to keep a terminal open.
 
 Run these commands on the machine that will host T3 Code:
 
-| Task                            | Command                           |
-| ------------------------------- | --------------------------------- |
-| Install and start               | `npx t3@latest service install`   |
-| Inspect status and log location | `npx t3@latest service status`    |
-| Update or repair                | `npx t3@latest service update`    |
-| Stop and remove from startup    | `npx t3@latest service uninstall` |
+| Task                            | Command                          |
+| ------------------------------- | -------------------------------- |
+| Install and start               | `oh-my-t3code service install`   |
+| Inspect status and log location | `oh-my-t3code service status`    |
+| Update to the newest release    | `oh-my-t3code update`            |
+| Repair the installed service    | `oh-my-t3code service install`   |
+| Stop and remove from startup    | `oh-my-t3code service uninstall` |
 
 Uninstalling the service leaves your projects, threads, and settings intact.
 
-Install and update use the version of the CLI you invoke. For nightly, use
-`npx t3@nightly service update`; replace `nightly` with an exact version to pin
-one. An older CLI refuses to replace a newer service unless you explicitly add
+Install uses the current CLI version. Use `oh-my-t3code update --channel nightly` to move to the
+nightly train. An older CLI refuses to replace a newer service unless you explicitly add
 `--allow-downgrade`.
 
 Updating restarts the server. Finish active work first, and wait for any remote
@@ -31,38 +31,40 @@ Node.js or npm once the CLI is on it. To get the CLI onto a machine without
 Node, run the install script:
 
 ```sh
-curl -fsSL https://t3.codes/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.sh | sh
 ```
 
-On Windows, run `irm https://t3.codes/install.ps1 | iex` in PowerShell instead.
+On Windows, run
+`irm https://raw.githubusercontent.com/nguyenphutrong/t3code/main/scripts/install.ps1 | iex` in
+PowerShell instead. Windows background services are not supported.
 
-It places `t3` in `~/.local/bin` and reuses the same download when you later
-run `t3 service install`. It follows the stable train by default; set
+It places `oh-my-t3code` in `~/.local/bin` and reuses the same download when you later
+run `oh-my-t3code service install`. It follows the stable train by default; set
 `T3CODE_CHANNEL=nightly` for nightlies, `T3CODE_VERSION` to pin an exact
 version, or `T3CODE_RELEASE_BASE_URL` to download from a mirror.
 
 `preview` is a third train that maintainers cut from unreleased branches to
 exercise the release pipeline. Those builds can be broken, receive no fixes,
-and are never offered as updates; the installer and `t3 update` only take you
+and are never offered as updates; the installer and `oh-my-t3code update` only take you
 there when you ask for the channel explicitly, and warn you when they do.
 
-Once a self-contained `t3` is installed, `t3 update` moves the machine to a
+Once installed, `oh-my-t3code update` moves the machine to a
 newer one without npm: it downloads the newest release on the channel the
-running `t3` came from, verifies it, and points the `t3` launcher at it. When
+running executable came from, verifies it, and points the launcher at it. When
 a background service is installed for the same T3 home it asks before
 restarting it, since a restart interrupts running agent turns, terminals, and
 remote clients; answer no and the service keeps the old version until you run
-`t3 service update`. From a script there is no prompt, so pass `--yes` to
+`oh-my-t3code service update`. From a script there is no prompt, so pass `--yes` to
 restart the service. A server you started by hand is never touched; the
 command tells you it is still on the old version so you can restart it
-yourself. Pass an exact version (`t3 update 0.0.41-preview.20260912.1595`) to
+yourself. Pass an exact version (`oh-my-t3code update 0.0.41-preview.20260912.1595`) to
 pin one, `--channel` to follow a different release train (moving onto preview from stable or nightly asks for confirmation), or
 `--allow-downgrade` to move backwards.
 
-`t3 uninstall` reverses the install script: it shows what it found (the
-background service, the `t3` launcher, every downloaded version under
-`~/.t3/runtime`), asks once, and removes them. Your projects, threads, and
-settings under `~/.t3/userdata` are kept; delete that directory yourself if
+`oh-my-t3code uninstall` reverses the install script: it shows what it found (the
+background service, the launcher, every downloaded version under
+`~/.oh-my-t3code/runtime`), asks once, and removes them. Your projects, threads, and
+settings under `~/.oh-my-t3code/userdata` are kept; delete that directory yourself if
 you want them gone too. Pass `--yes` from a script.
 
 ## Platform support
@@ -83,7 +85,7 @@ separately. Signing out of T3 Connect does not stop or uninstall the service.
 
 ## Troubleshooting
 
-Start with `t3 service status` on the host. It prints the log path and, on Linux,
+Start with `oh-my-t3code service status` on the host. It prints the log path and, on Linux,
 checks whether the installed service is running, enabled, and allowed to survive
 logout.
 
@@ -102,21 +104,21 @@ ssh -t your-server 'sudo loginctl enable-linger "$(id -un)"'
 
 Then retry service setup as your normal user. Run only the `loginctl` command
 with sudo; running T3 Code as root creates a separate installation and Connect
-identity. Without administrator access, run `t3 serve` in a terminal and keep
+identity. Without administrator access, run `oh-my-t3code serve` in a terminal and keep
 that session open.
 
 | Status problem                          | Next step                                                                                                                      |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `linger-unavailable`                    | Run `loginctl show-user "$(id -un)" --property=Linger` and check that systemd-logind is available.                             |
 | `user-manager-unavailable`              | Run `systemctl --user status` in a login session for the service user; check your distribution's systemd user-session support. |
-| `service-disabled` or `service-stopped` | Read the log and `systemctl --user status t3code.service`, then use the repair command printed by T3 Code.                     |
-| `restart-pending`                       | A newer version is installed but the service still runs the previous one. Run `t3 service restart`.                            |
+| `service-disabled` or `service-stopped` | Read the log and `systemctl --user status oh-my-t3code.service`, then use the repair command printed by Oh My T3Code.          |
+| `restart-pending`                       | A newer version is installed but the service still runs the previous one. Run `oh-my-t3code service restart`.                  |
 
 On macOS, check **System Settings → General → Login Items** if the service no
 longer starts at login. If agent work cannot access Desktop, Documents, or
 Downloads, it may need Full Disk Access for the Node executable listed in
 `ProgramArguments` in
-`~/Library/LaunchAgents/com.t3tools.t3code.service.plist`.
+`~/Library/LaunchAgents/com.nguyenphutrong.ohmyt3code.service.plist`.
 
 For failures after signing in to T3 Connect, see
 [connection troubleshooting](./remote-access.md#t3-connect-troubleshooting).

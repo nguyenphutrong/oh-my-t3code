@@ -1,8 +1,9 @@
 # Security policy
 
-Report security vulnerabilities affecting T3 Code or T3 Tools-operated infrastructure to
-[security@ping.gg](mailto:security@ping.gg). Please do not disclose them publicly until we have had
-a reasonable opportunity to investigate and remediate them.
+Report vulnerabilities in Oh My T3Code privately through
+[GitHub Security Advisories](https://github.com/nguyenphutrong/t3code/security/advisories/new). Do
+not open a public issue or disclose the vulnerability publicly until the fork maintainers have had
+a reasonable opportunity to investigate and remediate it.
 
-See the [full security policy](https://t3.codes/security-policy) for reporting details, scope,
-and safe harbor terms for good-faith research.
+Vulnerabilities in upstream T3 Code or T3 Tools-operated infrastructure should be reported under
+the [upstream security policy](https://t3.codes/security-policy), not to this fork.
