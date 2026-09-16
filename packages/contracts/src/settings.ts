@@ -668,6 +668,35 @@ export const ClaudeSettings = makeProviderSettingsSchema(
 );
 export type ClaudeSettings = typeof ClaudeSettings.Type;
 
+export const AmpSettings = makeProviderSettingsSchema(
+  {
+    enabled: Schema.Boolean.pipe(
+      Schema.withDecodingDefault(Effect.succeed(false)),
+      Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
+    ),
+    binaryPath: makeBinaryPathSetting("amp").pipe(
+      Schema.annotateKey({
+        title: "Binary path",
+        description: "Path to the Amp CLI used by the official Amp SDK.",
+        providerSettingsForm: { placeholder: "amp", clearWhenEmpty: "omit" },
+      }),
+    ),
+    settingsFile: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("")),
+      Schema.annotateKey({
+        title: "Settings file",
+        description: "Optional Amp settings file for this provider instance.",
+        providerSettingsForm: {
+          placeholder: "~/.config/amp/settings.json",
+          clearWhenEmpty: "omit",
+        },
+      }),
+    ),
+  },
+  { order: ["binaryPath", "settingsFile"] },
+);
+export type AmpSettings = typeof AmpSettings.Type;
+
 export const CursorSettings = makeProviderSettingsSchema(
   {
     // Off by default like Grok and OpenCode. Users opt in from Settings.
@@ -1219,6 +1248,7 @@ export const ServerSettings = Schema.Struct({
   providers: Schema.Struct({
     codex: CodexSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
     claudeAgent: ClaudeSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
+    amp: AmpSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
     cursor: CursorSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
     grok: GrokSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
     opencode: OpenCodeSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
@@ -1365,6 +1395,12 @@ const ClaudeSettingsPatch = Schema.Struct({
   ),
 });
 
+const AmpSettingsPatch = Schema.Struct({
+  enabled: Schema.optionalKey(Schema.Boolean),
+  binaryPath: Schema.optionalKey(TrimmedString),
+  settingsFile: Schema.optionalKey(TrimmedString),
+});
+
 const CursorSettingsPatch = Schema.Struct({
   enabled: Schema.optionalKey(Schema.Boolean),
   binaryPath: Schema.optionalKey(TrimmedString),
@@ -1466,6 +1502,7 @@ export const ServerSettingsPatch = Schema.Struct({
     Schema.Struct({
       codex: Schema.optionalKey(CodexSettingsPatch),
       claudeAgent: Schema.optionalKey(ClaudeSettingsPatch),
+      amp: Schema.optionalKey(AmpSettingsPatch),
       cursor: Schema.optionalKey(CursorSettingsPatch),
       grok: Schema.optionalKey(GrokSettingsPatch),
       opencode: Schema.optionalKey(OpenCodeSettingsPatch),

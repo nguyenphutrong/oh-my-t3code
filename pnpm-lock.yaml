@@ -494,6 +494,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@ampcode/sdk':
+        specifier: 0.1.0-20260823161614-g3631dc6
+        version: 0.1.0-20260823161614-g3631dc6
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.3.260
         version: 0.3.260(@anthropic-ai/sdk@0.93.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
@@ -1083,6 +1086,42 @@ packages:
 
   '@alchemy.run/node-utils@2.0.0-beta.76':
     resolution: {integrity: sha512-KUAlGdoeWeMEToUP1V3I+mEf6FVzUjU+6Tc8savNvMsXN9t3uwZVqD1FeMzTMzMTJJijjxVljQTCtyoeE9W43w==}
+
+  '@ampcode/cli-darwin-arm64@0.0.1789432613-gd97f0d':
+    resolution: {integrity: sha512-c8Ctt8EV+SnVu9Ge/lzwu7PXZGxcBU8FexYxZyBsFhSCZUcFZzg0rhL49wFyYkwALzMZcnHcxT2rJ0svXwTLVA==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@ampcode/cli-darwin-x64@0.0.1789432613-gd97f0d':
+    resolution: {integrity: sha512-BOqhirxyDq0AFIUpolrFLd7Kw+NgDcTzxul7GJ4sOT4XbIe9MvY0wcuuquQfehvuN6XMrNuZXLWr5BcRQYS86g==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@ampcode/cli-linux-arm64@0.0.1789432613-gd97f0d':
+    resolution: {integrity: sha512-GxkuM2mnIUcSrLXGIhdu442lJ/WKoFRzbjRnPSzk5FNXMt/izfKRemPLAqMFWSFAht/wmuaoV5KzjdElhT6nGw==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@ampcode/cli-linux-x64@0.0.1789432613-gd97f0d':
+    resolution: {integrity: sha512-AFJ69r0MbPia8ErXIjQMt/RCRDDol3f5BbkVbnDe/I5pc42U15OjvSkmJibRRbjs9DFABafEtg0z3FPZ5H0xIg==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@ampcode/cli-win32-x64@0.0.1789432613-gd97f0d':
+    resolution: {integrity: sha512-GTxhaDY7Z1I2SmB7SDvqWAMPHpWnLHV+HBDjcqYtAs1sigBDKnbXZgloV6y+JiYzMK17IlhaS65QpUaINH6aQw==}
+    cpu: [x64]
+    os: [win32]
+
+  '@ampcode/cli@0.0.1789432613-gd97f0d':
+    resolution: {integrity: sha512-LyGhQ/pVOfMILrL0uNkt495F0WTpZf/AuRa2YRACX7gHQ1ZV8p6wPzDOyaK9f/eLSBDIvGrInnD857fNCLbHWQ==}
+    hasBin: true
+
+  '@ampcode/sdk@0.1.0-20260823161614-g3631dc6':
+    resolution: {integrity: sha512-miWxp589g98hUMEl5tgsKgnz/UZsGDXBJq+8VEaBYqpBujF4fTA5Y+fZ8gQqVb5H5yRK2u82UHIrRZKwklrf4A==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@anthropic-ai/claude-agent-sdk@0.3.260':
     resolution: {integrity: sha512-PmABtP4Rwd6l95itQrqzguv6rS9uACqikPB9g8BPeWRKZOpy3xpEOjJLYauof3BFk2wNZnfhr0Ttx8ttcZzq0w==}
@@ -11421,6 +11460,34 @@ snapshots:
       effect: 4.0.0-rc.112(patch_hash=8bef799f35729cf3465eb428196f617b434a7c9f658d56acb2874d74b21b98b2)
 
   '@alchemy.run/node-utils@2.0.0-beta.76': {}
+
+  '@ampcode/cli-darwin-arm64@0.0.1789432613-gd97f0d':
+    optional: true
+
+  '@ampcode/cli-darwin-x64@0.0.1789432613-gd97f0d':
+    optional: true
+
+  '@ampcode/cli-linux-arm64@0.0.1789432613-gd97f0d':
+    optional: true
+
+  '@ampcode/cli-linux-x64@0.0.1789432613-gd97f0d':
+    optional: true
+
+  '@ampcode/cli-win32-x64@0.0.1789432613-gd97f0d':
+    optional: true
+
+  '@ampcode/cli@0.0.1789432613-gd97f0d':
+    optionalDependencies:
+      '@ampcode/cli-darwin-arm64': 0.0.1789432613-gd97f0d
+      '@ampcode/cli-darwin-x64': 0.0.1789432613-gd97f0d
+      '@ampcode/cli-linux-arm64': 0.0.1789432613-gd97f0d
+      '@ampcode/cli-linux-x64': 0.0.1789432613-gd97f0d
+      '@ampcode/cli-win32-x64': 0.0.1789432613-gd97f0d
+
+  '@ampcode/sdk@0.1.0-20260823161614-g3631dc6':
+    dependencies:
+      '@ampcode/cli': 0.0.1789432613-gd97f0d
+      zod: 3.25.76
 
   '@anthropic-ai/claude-agent-sdk@0.3.260(@anthropic-ai/sdk@0.93.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)':
     dependencies:

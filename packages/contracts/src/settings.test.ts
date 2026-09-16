@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema";
 
 import { ProviderDriverKind, ProviderInstanceId } from "./providerInstance.ts";
 import {
+  AmpSettings,
   ClientSettingsSchema,
   ClientSettingsPatch,
   ClaudeSettings,
@@ -18,7 +19,29 @@ const encodeClientSettings = Schema.encodeSync(ClientSettingsSchema);
 const decodeServerSettings = Schema.decodeUnknownSync(ServerSettings);
 const decodeServerSettingsPatch = Schema.decodeUnknownSync(ServerSettingsPatch);
 const encodeServerSettings = Schema.encodeSync(ServerSettings);
+const decodeAmpSettings = Schema.decodeUnknownSync(AmpSettings);
 const decodeClaudeSettings = Schema.decodeUnknownSync(ClaudeSettings);
+
+describe("AmpSettings", () => {
+  it("defaults to an opt-in local Amp CLI instance", () => {
+    expect(decodeAmpSettings({})).toEqual({
+      enabled: false,
+      binaryPath: "amp",
+      settingsFile: "",
+    });
+    expect(decodeServerSettings({}).providers.amp).toEqual(decodeAmpSettings({}));
+  });
+
+  it("accepts native Amp paths at the patch boundary", () => {
+    expect(
+      decodeServerSettingsPatch({
+        providers: {
+          amp: { enabled: true, binaryPath: "/opt/amp", settingsFile: "/tmp/amp.json" },
+        },
+      }).providers?.amp,
+    ).toEqual({ enabled: true, binaryPath: "/opt/amp", settingsFile: "/tmp/amp.json" });
+  });
+});
 
 describe("ServerSettings default permissions", () => {
   it("keeps full access for settings saved before a default was configured", () => {
