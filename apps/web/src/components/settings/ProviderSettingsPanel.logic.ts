@@ -1,9 +1,29 @@
 import type { EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
 import {
   AuthOrchestrationOperateScope,
+  defaultInstanceIdForDriver,
   type AuthSessionState,
   type EnvironmentId,
+  type ProviderDriverKind,
+  type ProviderInstanceId,
 } from "@t3tools/contracts";
+
+/**
+ * A driver-named instance is a non-removable default slot only when that
+ * driver also has a legacy settings entry to fall back to. Generic drivers
+ * such as ACP Registry have no legacy slot, so an explicit `acpRegistry`
+ * instance remains an ordinary user-owned instance that can be deleted.
+ */
+export function isLegacyProviderDefaultSlot(input: {
+  readonly providers: Readonly<Record<string, unknown>>;
+  readonly driver: ProviderDriverKind;
+  readonly instanceId: ProviderInstanceId;
+}): boolean {
+  return (
+    Object.hasOwn(input.providers, input.driver) &&
+    input.instanceId === defaultInstanceIdForDriver(input.driver)
+  );
+}
 
 export interface ProviderEnvironmentOptionLike {
   readonly environmentId: EnvironmentId;

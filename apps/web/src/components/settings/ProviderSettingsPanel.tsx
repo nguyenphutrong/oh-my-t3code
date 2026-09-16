@@ -105,6 +105,7 @@ import {
 import {
   buildProviderEnvironmentOptions,
   classifyProviderEnvironmentAccess,
+  isLegacyProviderDefaultSlot,
   isProviderSettingsEnvironmentAvailable,
   type ProviderEnvironmentAccess,
   type ProviderOperateAccess,
@@ -713,12 +714,6 @@ export function EnvironmentProviderSettings({
     instancesByDriver.set(driver, list);
   }
 
-  const defaultSlotIdsBySource = new Set<string>(
-    visibleProviderSettings.map((providerSettings) =>
-      String(defaultInstanceIdForDriver(providerSettings.provider)),
-    ),
-  );
-
   const rows: InstanceRow[] = [];
   const visibleDriverKinds = new Set<ProviderDriverKind>(
     visibleProviderSettings.map((providerSettings) => providerSettings.provider),
@@ -765,7 +760,11 @@ export function EnvironmentProviderSettings({
         instanceId: defaultInstanceId,
         instance: effectiveInstance,
         driver,
-        isDefault: true,
+        isDefault: isLegacyProviderDefaultSlot({
+          providers: legacyProviders,
+          driver,
+          instanceId: defaultInstanceId,
+        }),
         isDirty,
       });
     }
@@ -781,7 +780,11 @@ export function EnvironmentProviderSettings({
         instanceId: id,
         instance,
         driver: instance.driver,
-        isDefault: defaultSlotIdsBySource.has(String(id)),
+        isDefault: isLegacyProviderDefaultSlot({
+          providers: settings.providers,
+          driver,
+          instanceId: id,
+        }),
       });
     }
   }

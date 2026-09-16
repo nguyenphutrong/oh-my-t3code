@@ -1,9 +1,15 @@
-import { AuthOrchestrationOperateScope, EnvironmentId } from "@t3tools/contracts";
+import {
+  AuthOrchestrationOperateScope,
+  EnvironmentId,
+  ProviderDriverKind,
+  ProviderInstanceId,
+} from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
   buildProviderEnvironmentOptions,
   classifyProviderEnvironmentAccess,
+  isLegacyProviderDefaultSlot,
   isProviderSettingsEnvironmentAvailable,
   resolvePrimaryOperateAccess,
   resolveRemoteOperateAccess,
@@ -19,6 +25,30 @@ const environments = [
   { environmentId: relayId, label: "Alpha Relay" },
   { environmentId: primaryId, label: "This device" },
 ] as const;
+
+describe("provider default slots", () => {
+  const providers = { codex: {}, amp: {} };
+
+  it("keeps legacy driver defaults non-removable", () => {
+    expect(
+      isLegacyProviderDefaultSlot({
+        providers,
+        driver: ProviderDriverKind.make("amp"),
+        instanceId: ProviderInstanceId.make("amp"),
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps a driver-named ACP Registry instance removable", () => {
+    expect(
+      isLegacyProviderDefaultSlot({
+        providers,
+        driver: ProviderDriverKind.make("acpRegistry"),
+        instanceId: ProviderInstanceId.make("acpRegistry"),
+      }),
+    ).toBe(false);
+  });
+});
 
 describe("provider environment selection", () => {
   it("requires a connected environment with server config for searchable provider settings", () => {
