@@ -8,7 +8,6 @@ import {
   type ProviderRuntimeEvent,
   ThreadId,
 } from "@t3tools/contracts";
-import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Stream from "effect/Stream";
@@ -205,13 +204,13 @@ it.effect("rejects attachments before launching Amp", () =>
 
 it.effect("aborts the active SDK execution without closing the provider session", () =>
   Effect.gen(function* () {
-    const initialized = yield* Deferred.make<void>();
+    const initialized = Promise.withResolvers<void>();
     const threadId = ThreadId.make("amp-native-cancel");
     const events: ProviderRuntimeEvent[] = [];
     const execute = (options: ExecuteOptions): AsyncIterable<StreamMessage> => ({
       async *[Symbol.asyncIterator]() {
         yield successfulMessages()[0]!;
-        await Effect.runPromise(Deferred.succeed(initialized, undefined));
+        initialized.resolve();
         await new Promise<never>((_resolve, reject) => {
           if (options.signal?.aborted) {
             reject(new Error("aborted"));
@@ -232,7 +231,7 @@ it.effect("aborts the active SDK execution without closing the provider session"
     const turnFiber = yield* adapter
       .sendTurn({ threadId, input: "Wait", attachments: [] })
       .pipe(Effect.forkChild);
-    yield* Deferred.await(initialized);
+    yield* Effect.promise(() => initialized.promise);
     yield* adapter.interruptTurn(threadId);
     yield* Fiber.await(turnFiber);
 
