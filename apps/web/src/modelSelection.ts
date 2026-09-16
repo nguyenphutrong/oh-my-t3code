@@ -73,7 +73,7 @@ function readInstanceCustomModels(
   }
   const legacyProviders = settings.providers as Record<
     string,
-    { readonly customModels: ReadonlyArray<unknown> } | undefined
+    { readonly customModels?: ReadonlyArray<unknown> } | undefined
   >;
   return readCustomModelEntries(legacyProviders[driverKind]?.customModels ?? []);
 }

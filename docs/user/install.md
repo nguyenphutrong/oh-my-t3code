@@ -88,6 +88,7 @@ computer.
 | ------------ | -------------------------------------------------------------------------------------------- |
 | Codex        | Install [Codex CLI](https://developers.openai.com/codex/cli), then run `codex login`.        |
 | Claude       | Install [Claude Code](https://claude.com/product/claude-code), then run `claude auth login`. |
+| Amp          | Install [Amp](https://ampcode.com/manual#installation), then authenticate with Amp.          |
 | Cursor       | Install [Cursor CLI](https://cursor.com/cli), then run `agent login`.                        |
 | Grok Build   | Install [Grok Build CLI](https://x.ai/cli), then run `grok login`.                           |
 | OpenCode     | Install [OpenCode](https://opencode.ai), then run `opencode auth login`.                     |
@@ -138,7 +139,7 @@ environment. Mobile uses configured ACP providers for threads, but does not
 install or edit provider instances.
 
 For provider-specific setup and accounts, see [Codex](./providers-codex.md),
-[Claude](./providers-claude.md), [OpenCode](./providers-opencode.md), and
+[Claude](./providers-claude.md), [Amp](./providers-amp.md), [OpenCode](./providers-opencode.md), and
 [Antigravity](./providers-antigravity.md).
 
 ## Next steps

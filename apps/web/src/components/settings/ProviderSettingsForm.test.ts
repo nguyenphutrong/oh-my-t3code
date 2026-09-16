@@ -70,6 +70,16 @@ describe("ProviderSettingsForm helpers", () => {
     ]);
   });
 
+  it("exposes the official Amp SDK executable and settings file", () => {
+    const amp = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("amp")];
+    expect(amp).toBeDefined();
+
+    expect(deriveProviderSettingsFields(amp!).map((field) => field.key)).toEqual([
+      "binaryPath",
+      "settingsFile",
+    ]);
+  });
+
   it("preserves unknown config keys while omitting empty configurable fields", () => {
     const opencode = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("opencode")];
     expect(opencode).toBeDefined();

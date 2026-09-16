@@ -269,12 +269,7 @@ export function AddProviderInstanceDialog({
 
   const handleSave = () => {
     setHasAttemptedSubmit(true);
-    if (
-      instanceIdError !== null ||
-      acpSelectionError !== null ||
-      (isAcpRegistry && environmentError !== null)
-    )
-      return;
+    if (instanceIdError !== null || acpSelectionError !== null || environmentError !== null) return;
 
     const config = configByDriver[driver] ?? {};
     const hasConfig = Object.keys(config).length > 0;
@@ -285,7 +280,7 @@ export function AddProviderInstanceDialog({
       enabled: true,
       ...(label.trim().length > 0 ? { displayName: label.trim() } : {}),
       ...(normalizedAccentColor ? { accentColor: normalizedAccentColor } : {}),
-      ...(isAcpRegistry && environmentVariables.length > 0
+      ...(environmentVariables.length > 0
         ? {
             environment: environmentVariables.map((variable) => ({
               name: variable.name,
@@ -555,95 +550,93 @@ export function AddProviderInstanceDialog({
                 variant="dialog"
                 onChange={setConfigDraft}
               />
-              {isAcpRegistry ? (
-                <div className="grid gap-2 border-t border-border/70 pt-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium text-foreground">Environment variables</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Mark credentials as secret so values are stored in the server secret store.
-                      </p>
-                    </div>
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() =>
-                        setEnvironmentVariables((current) => [
-                          ...current,
-                          makeEnvironmentVariableDraft(),
-                        ])
-                      }
-                    >
-                      <PlusIcon className="size-3.5" /> Add
-                    </Button>
+              <div className="grid gap-2 border-t border-border/70 pt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Environment variables</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Mark credentials as secret so values are stored in the server secret store.
+                    </p>
                   </div>
-                  {environmentVariables.map((variable, index) => (
-                    <div
-                      key={variable.draftId}
-                      className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-2"
-                    >
-                      <Input
-                        aria-label={`Environment variable ${index + 1} name`}
-                        placeholder="VARIABLE_NAME"
-                        value={variable.name}
-                        onChange={(event) =>
-                          setEnvironmentVariables((current) =>
-                            current.map((entry, entryIndex) =>
-                              entryIndex === index ? { ...entry, name: event.target.value } : entry,
-                            ),
-                          )
-                        }
-                      />
-                      <Input
-                        aria-label={`Environment variable ${index + 1} value`}
-                        placeholder={variable.sensitive ? "Secret value" : "Value"}
-                        type={variable.sensitive ? "password" : "text"}
-                        value={variable.valueRedacted ? "" : variable.value}
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() =>
+                      setEnvironmentVariables((current) => [
+                        ...current,
+                        makeEnvironmentVariableDraft(),
+                      ])
+                    }
+                  >
+                    <PlusIcon className="size-3.5" /> Add
+                  </Button>
+                </div>
+                {environmentVariables.map((variable, index) => (
+                  <div
+                    key={variable.draftId}
+                    className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-2"
+                  >
+                    <Input
+                      aria-label={`Environment variable ${index + 1} name`}
+                      placeholder="VARIABLE_NAME"
+                      value={variable.name}
+                      onChange={(event) =>
+                        setEnvironmentVariables((current) =>
+                          current.map((entry, entryIndex) =>
+                            entryIndex === index ? { ...entry, name: event.target.value } : entry,
+                          ),
+                        )
+                      }
+                    />
+                    <Input
+                      aria-label={`Environment variable ${index + 1} value`}
+                      placeholder={variable.sensitive ? "Secret value" : "Value"}
+                      type={variable.sensitive ? "password" : "text"}
+                      value={variable.valueRedacted ? "" : variable.value}
+                      onChange={(event) =>
+                        setEnvironmentVariables((current) =>
+                          current.map((entry, entryIndex) =>
+                            entryIndex === index
+                              ? { ...entry, value: event.target.value, valueRedacted: false }
+                              : entry,
+                          ),
+                        )
+                      }
+                    />
+                    <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={variable.sensitive}
                         onChange={(event) =>
                           setEnvironmentVariables((current) =>
                             current.map((entry, entryIndex) =>
                               entryIndex === index
-                                ? { ...entry, value: event.target.value, valueRedacted: false }
+                                ? { ...entry, sensitive: event.target.checked }
                                 : entry,
                             ),
                           )
                         }
                       />
-                      <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <input
-                          type="checkbox"
-                          checked={variable.sensitive}
-                          onChange={(event) =>
-                            setEnvironmentVariables((current) =>
-                              current.map((entry, entryIndex) =>
-                                entryIndex === index
-                                  ? { ...entry, sensitive: event.target.checked }
-                                  : entry,
-                              ),
-                            )
-                          }
-                        />
-                        Secret
-                      </label>
-                      <Button
-                        aria-label={`Remove environment variable ${index + 1}`}
-                        size="icon-xs"
-                        variant="ghost"
-                        onClick={() =>
-                          setEnvironmentVariables((current) =>
-                            current.filter((_, entryIndex) => entryIndex !== index),
-                          )
-                        }
-                      >
-                        <Trash2Icon className="size-3.5" />
-                      </Button>
-                    </div>
-                  ))}
-                  {environmentError ? (
-                    <p className="text-[11px] text-destructive">{environmentError}</p>
-                  ) : null}
-                </div>
-              ) : null}
+                      Secret
+                    </label>
+                    <Button
+                      aria-label={`Remove environment variable ${index + 1}`}
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={() =>
+                        setEnvironmentVariables((current) =>
+                          current.filter((_, entryIndex) => entryIndex !== index),
+                        )
+                      }
+                    >
+                      <Trash2Icon className="size-3.5" />
+                    </Button>
+                  </div>
+                ))}
+                {environmentError ? (
+                  <p className="text-[11px] text-destructive">{environmentError}</p>
+                ) : null}
+              </div>
             </div>
           ) : wizardStep === 2 ? (
             <div className="grid gap-2">

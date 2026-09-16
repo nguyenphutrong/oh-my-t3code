@@ -1,6 +1,7 @@
 import {
   AntigravitySettings,
   AcpRegistrySettings,
+  AmpSettings,
   ClaudeSettings,
   CodexSettings,
   CursorSettings,
@@ -12,6 +13,7 @@ import type * as Schema from "effect/Schema";
 import {
   AntigravityIcon,
   ACPRegistryIcon,
+  AmpIcon,
   ClaudeAI,
   CursorIcon,
   GrokIcon,
@@ -57,6 +59,12 @@ const PROVIDER_CLIENT_DEFINITIONS: readonly ProviderClientDefinition[] = [
     label: "Claude",
     icon: ClaudeAI,
     settingsSchema: ClaudeSettings,
+  },
+  {
+    value: ProviderDriverKind.make("amp"),
+    label: "Amp",
+    icon: AmpIcon,
+    settingsSchema: AmpSettings,
   },
   {
     value: ProviderDriverKind.make("cursor"),

@@ -35,6 +35,31 @@ elicitation operations return explicit adapter validation errors; they are not e
 ACP image blocks are capped at 8 MiB. Registry agents remain trusted local programs rather than a
 sandbox boundary.
 
+## Native Amp SDK boundary
+
+The native Amp driver uses the official `@ampcode/sdk` rather than routing through ACP. The
+[adapter](../../apps/server/src/provider/Layers/AmpAdapter.ts) owns T3 sessions and maps SDK
+system, assistant, tool, result, usage, cancellation, and explicit Amp thread IDs into the shared
+provider runtime. The community `amp-acp` registry entry remains an independent provider instance;
+there is no implicit migration between the two continuation formats.
+
+The SDK discovers a custom executable through process-global `AMP_CLI_PATH`. The
+[SDK runtime boundary](../../apps/server/src/provider/Layers/AmpSdkRuntime.ts) serializes only the
+child-process launch window, restores the previous environment immediately after the first SDK
+message, and then lets turns stream concurrently. This avoids both cross-instance binary
+substitution and whole-turn serialization. SDK messages are capped at 1 MiB before normalization,
+large event fields are truncated, and each active turn has its own `AbortController`.
+
+Amp threads use private visibility, disable archive-on-execute, and always continue a concrete
+thread ID. The SDK currently provides message-level streaming and text-only input, but no auth
+status API, model catalog, typed attachments, or in-process permission callback. Health checks
+therefore inspect only `amp --version` and an explicitly supplied `AMP_API_KEY`; they never read
+Amp credential files. Full access maps to `dangerouslyAllowAll`, while other modes retain Amp's
+non-interactive permission behavior and normalize reported denials.
+
+`@ampcode/sdk` is published under the Amp Commercial License / Amp Terms of Service. Release
+owners must confirm that distributing it with T3 Code is permitted before shipping this driver.
+
 ## Process and account isolation
 
 T3-managed OpenCode chat uses one server per thread. Its MCP registrations are directory-scoped, while

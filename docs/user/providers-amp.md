@@ -1,0 +1,41 @@
+# Amp
+
+T3 Code supports Amp as a native provider through the official
+[`@ampcode/sdk`](https://ampcode.com/docs/sdk). This integration is separate from the
+community `amp-acp` entry in ACP Registry; existing `amp-acp` instances are not changed or
+migrated.
+
+## Set up Amp
+
+1. Install the [Amp CLI](https://ampcode.com/manual#installation) on the machine running the T3
+   Code environment.
+2. Authenticate with Amp, or create an API key in Amp Security Settings and add it as
+   `AMP_API_KEY`.
+3. In the web or desktop client, open **Settings → Providers → Add provider instance** and choose
+   **Amp**.
+4. Keep **Binary path** as `amp`, or enter the full path to another Amp installation. Optionally
+   select an Amp settings file.
+5. When using `AMP_API_KEY`, add it under **Environment variables** and mark it **Secret**. T3 Code
+   stores the value in its secret store and does not display it after saving.
+
+Amp authentication remains owned by Amp. T3 Code does not read or copy Amp's cached credentials.
+Provider health can confirm the CLI version and an explicitly configured API key, but it reports
+cached-login state as unknown rather than inspecting credential files.
+
+## Modes and sessions
+
+The model picker exposes Amp's **Low**, **Medium**, **High**, and **Ultra** modes, plus the reasoning
+effort values supported by the SDK. T3 Code stores Amp's explicit thread ID and uses it for later
+turns, so continuation never depends on whichever Amp thread happened to run most recently.
+
+Threads are created with private visibility and are not archived automatically when an SDK call
+finishes. Full access maps to Amp's `dangerouslyAllowAll` option. In other permission modes, Amp
+uses its non-interactive SDK permission policy; denied tools appear in the conversation, but the
+current SDK does not expose an in-process callback for T3 Code approval cards.
+
+The official SDK currently accepts text prompts only. Image and file attachments are rejected
+before Amp starts, with an actionable error. Amp streams complete message blocks rather than token
+deltas, so text appears as each SDK message arrives.
+
+Provider setup is managed from web or desktop. Mobile can select configured Amp instances and
+their modes when starting or updating a thread.

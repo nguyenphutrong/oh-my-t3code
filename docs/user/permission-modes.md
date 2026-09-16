@@ -27,6 +27,10 @@ including OpenCode and Antigravity, fall back to asking.
 For Grok, **Always allow this session** remembers the matching command or tool input. Other
 actions still require approval.
 
+Amp's official SDK currently has no in-process permission callback. **Full access** enables Amp's
+unattended tool execution; other modes use Amp's non-interactive permission policy and surface
+denials, but cannot yet show T3 Code approval cards.
+
 Antigravity can still send native approval requests in **Full access**. It only offers remembered
 approvals for actions that support them.
 
