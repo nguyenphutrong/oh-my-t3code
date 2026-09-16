@@ -121,6 +121,30 @@ describe("deriveProviderModelsForDisplay", () => {
     expect(markup).toContain("blur-[2px]");
     expect(markup).not.toContain("developer@example.com");
   });
+
+  it("labels registry agents as ACP in both settings views", () => {
+    const instanceId = ProviderInstanceId.make("acpRegistry_amp-acp");
+    const driver = ProviderDriverKind.make("acpRegistry");
+    const props = {
+      instanceId,
+      instance: { driver, displayName: "Amp" },
+      driverOption: undefined,
+      liveProvider: undefined,
+      onUpdate: () => undefined,
+      hiddenModels: [],
+      favoriteModels: [],
+      modelOrder: [],
+      onHiddenModelsChange: () => undefined,
+      onFavoriteModelsChange: () => undefined,
+      onModelOrderChange: () => undefined,
+    } as const;
+
+    for (const mode of ["list", "editor"] as const) {
+      const markup = renderToStaticMarkup(createElement(ProviderInstanceCard, { ...props, mode }));
+      expect(markup).toContain("Amp (ACP)");
+    }
+  });
+
   it("surfaces a failed probe message in both the list row and the editor", () => {
     const instanceId = ProviderInstanceId.make("codex_work");
     const driver = ProviderDriverKind.make("codex");

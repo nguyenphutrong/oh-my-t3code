@@ -54,6 +54,36 @@ describe("mobile model options", () => {
     ]);
   });
 
+  it("distinguishes an ACP registry agent from its first-party provider", () => {
+    const providers = [
+      { instanceId: "amp", driver: "amp", displayName: "Amp" },
+      {
+        instanceId: "acpRegistry_amp-acp",
+        driver: "acpRegistry",
+        displayName: "Amp",
+      },
+    ].map((provider) => ({
+      ...provider,
+      enabled: true,
+      installed: true,
+      auth: { status: "authenticated" },
+      models: [
+        {
+          slug: "default",
+          name: "Default",
+          isCustom: false,
+          capabilities: null,
+        },
+      ],
+    }));
+    const config = { providers } as unknown as ServerConfig;
+
+    expect(buildModelOptions(config, null).map((option) => option.providerLabel)).toEqual([
+      "Amp",
+      "Amp (ACP)",
+    ]);
+  });
+
   it("distinguishes same-name OpenCode models without changing their routing", () => {
     const sources = [
       { id: "anthropic", label: "Anthropic" },

@@ -40,12 +40,21 @@ export function resolveProviderInstanceDisplayName(
 ): string {
   const trimmedSnapshotName = snapshot.displayName?.trim();
   const kindLabel = PROVIDER_DISPLAY_NAMES[snapshot.driver] ?? humanizeSlug(snapshot.driver);
-  if (trimmedSnapshotName && trimmedSnapshotName !== kindLabel) return trimmedSnapshotName;
-  if (snapshot.instanceId !== defaultInstanceIdForDriver(snapshot.driver)) {
+  let displayName = trimmedSnapshotName || kindLabel;
+  if (trimmedSnapshotName && trimmedSnapshotName !== kindLabel) {
+    displayName = trimmedSnapshotName;
+  } else if (snapshot.instanceId !== defaultInstanceIdForDriver(snapshot.driver)) {
     const humanized = humanizeSlug(snapshot.instanceId);
-    if (humanized.length > 0) return humanized;
+    if (humanized.length > 0) displayName = humanized;
   }
-  return trimmedSnapshotName || kindLabel;
+
+  // Registry agents can share a product name and icon with a first-party
+  // provider (for example community amp-acp and native Amp). Keep the stored
+  // identity untouched while making the runtime/trust boundary visible.
+  if (snapshot.driver === "acpRegistry" && !/\(ACP\)$/iu.test(displayName)) {
+    return `${displayName} (ACP)`;
+  }
+  return displayName;
 }
 
 /**

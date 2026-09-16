@@ -1,8 +1,11 @@
-import type {
-  ModelCapabilities,
-  ModelSelection,
-  ServerConfig as T3ServerConfig,
+import {
+  isProviderDriverKind,
+  ProviderInstanceId,
+  type ModelCapabilities,
+  type ModelSelection,
+  type ServerConfig as T3ServerConfig,
 } from "@t3tools/contracts";
+import { resolveProviderInstanceDisplayName } from "@t3tools/client-runtime/state/provider-instance-display";
 import {
   buildExplicitProviderOptionSelectionsFromDescriptors,
   getProviderOptionDescriptors,
@@ -33,10 +36,14 @@ function providerDisplayLabel(provider: {
   readonly driver: string;
   readonly instanceId: string;
 }): string {
+  if (isProviderDriverKind(provider.driver)) {
+    return resolveProviderInstanceDisplayName({
+      instanceId: ProviderInstanceId.make(provider.instanceId),
+      driver: provider.driver,
+      displayName: provider.displayName,
+    });
+  }
   if (provider.displayName) return provider.displayName;
-  if (provider.driver === "codex") return "Codex";
-  if (provider.driver === "claudeAgent") return "Claude";
-  if (provider.driver === "amp") return "Amp";
   return provider.instanceId;
 }
 

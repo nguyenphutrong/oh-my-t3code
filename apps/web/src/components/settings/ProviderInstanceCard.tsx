@@ -31,6 +31,7 @@ import {
   readCustomModelEntries,
   toCustomModelSetting,
 } from "@t3tools/shared/model";
+import { resolveProviderInstanceDisplayName } from "@t3tools/client-runtime/state/provider-instance-display";
 import { cn } from "../../lib/utils";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { normalizeProviderAccentColor } from "../../providerInstances";
@@ -444,8 +445,16 @@ export function ProviderInstanceCard({
   const versionAdvisory = getProviderVersionAdvisoryPresentation(liveProvider?.versionAdvisory);
   const updateCommand = versionAdvisory?.updateCommand ?? null;
   const FallbackIconComponent = driverOption?.icon;
-  const displayName =
-    instance.displayName?.trim() || driverOption?.label || String(instance.driver);
+  const driverKind: ProviderDriverKind | null = isProviderDriverKind(instance.driver)
+    ? instance.driver
+    : null;
+  const displayName = driverKind
+    ? resolveProviderInstanceDisplayName({
+        instanceId,
+        driver: driverKind,
+        displayName: instance.displayName ?? driverOption?.label,
+      })
+    : instance.displayName?.trim() || driverOption?.label || String(instance.driver);
   const accentColor = normalizeProviderAccentColor(instance.accentColor);
   const { copyToClipboard } = useCopyToClipboard<{ providerName: string }>({
     onCopy: ({ providerName }) => {
@@ -470,9 +479,6 @@ export function ProviderInstanceCard({
   // `ProviderDriverKind` union (e.g. `normalizeModelSlug`'s alias table). Custom
   // fork drivers pass through as `null` and those callers fall back to
   // verbatim behaviour.
-  const driverKind: ProviderDriverKind | null = isProviderDriverKind(instance.driver)
-    ? instance.driver
-    : null;
   const customModels =
     instance.driver === "antigravity" ? [] : readConfigCustomModels(instance.config);
   // Server-returned models may lag behind settings writes. Treat probe

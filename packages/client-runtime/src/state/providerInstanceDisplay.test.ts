@@ -10,6 +10,7 @@ import {
 
 const codex = ProviderDriverKind.make("codex");
 const claude = ProviderDriverKind.make("claudeAgent");
+const acpRegistry = ProviderDriverKind.make("acpRegistry");
 
 describe("resolveProviderInstanceDisplayName", () => {
   it("keeps a snapshot name that differs from the brand label", () => {
@@ -39,6 +40,33 @@ describe("resolveProviderInstanceDisplayName", () => {
         driver: codex,
       }),
     ).toBe("Codex");
+  });
+
+  it("marks registry agents as ACP without changing first-party provider names", () => {
+    expect(
+      resolveProviderInstanceDisplayName({
+        instanceId: ProviderInstanceId.make("acpRegistry_amp-acp"),
+        driver: acpRegistry,
+        displayName: "Amp",
+      }),
+    ).toBe("Amp (ACP)");
+    expect(
+      resolveProviderInstanceDisplayName({
+        instanceId: ProviderInstanceId.make("amp"),
+        driver: ProviderDriverKind.make("amp"),
+        displayName: "Amp",
+      }),
+    ).toBe("Amp");
+  });
+
+  it("does not duplicate an existing ACP qualifier", () => {
+    expect(
+      resolveProviderInstanceDisplayName({
+        instanceId: ProviderInstanceId.make("acpRegistry_amp-acp"),
+        driver: acpRegistry,
+        displayName: "Amp (ACP)",
+      }),
+    ).toBe("Amp (ACP)");
   });
 });
 
