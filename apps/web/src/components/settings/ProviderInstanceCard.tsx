@@ -627,7 +627,18 @@ export function ProviderInstanceCard({
           <span className="min-w-0 flex-1">
             <span className="flex min-w-0 items-center gap-2">
               <span className="truncate text-sm font-medium text-foreground">{displayName}</span>
-              {String(instanceId) !== String(instance.driver) ? (
+              {instance.driver === "acpRegistry" ? (
+                <Badge
+                  variant="warning"
+                  size="sm"
+                  className="shrink-0"
+                  aria-label="ACP Registry agent"
+                >
+                  ACP
+                </Badge>
+              ) : null}
+              {instance.driver !== "acpRegistry" &&
+              String(instanceId) !== String(instance.driver) ? (
                 <code className="min-w-0 truncate rounded bg-muted/60 px-1 py-0.5 text-[10px] text-muted-foreground">
                   {instanceId}
                 </code>

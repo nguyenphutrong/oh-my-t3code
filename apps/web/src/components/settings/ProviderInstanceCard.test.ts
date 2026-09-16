@@ -142,6 +142,10 @@ describe("deriveProviderModelsForDisplay", () => {
     for (const mode of ["list", "editor"] as const) {
       const markup = renderToStaticMarkup(createElement(ProviderInstanceCard, { ...props, mode }));
       expect(markup).toContain("Amp (ACP)");
+      if (mode === "list") {
+        expect(markup).toContain('aria-label="ACP Registry agent"');
+        expect(markup).not.toContain("acpRegistry_amp-acp</code>");
+      }
     }
   });
 
