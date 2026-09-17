@@ -776,9 +776,10 @@ export function projectEvent(
           "message",
         );
 
-        const existingMessage = thread.messages.find((entry) => entry.id === message.id);
+        const previousMessages = event.metadata.historySync ? [] : thread.messages;
+        const existingMessage = previousMessages.find((entry) => entry.id === message.id);
         const messages = existingMessage
-          ? thread.messages.map((entry) =>
+          ? previousMessages.map((entry) =>
               entry.id === message.id
                 ? {
                     ...entry,
@@ -797,7 +798,7 @@ export function projectEvent(
                   }
                 : entry,
             )
-          : [...thread.messages, message];
+          : [...previousMessages, message];
         const cappedMessages = messages.slice(-MAX_THREAD_MESSAGES);
 
         return {

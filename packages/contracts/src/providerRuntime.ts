@@ -154,6 +154,7 @@ const ProviderRuntimeEventType = Schema.Literals([
   "session.state.changed",
   "session.exited",
   "thread.started",
+  "thread.history.synced",
   "thread.state.changed",
   "thread.metadata.updated",
   "thread.token-usage.updated",
@@ -206,6 +207,7 @@ const SessionConfiguredType = Schema.Literal("session.configured");
 const SessionStateChangedType = Schema.Literal("session.state.changed");
 const SessionExitedType = Schema.Literal("session.exited");
 const ThreadStartedType = Schema.Literal("thread.started");
+const ThreadHistorySyncedType = Schema.Literal("thread.history.synced");
 const ThreadStateChangedType = Schema.Literal("thread.state.changed");
 const ThreadMetadataUpdatedType = Schema.Literal("thread.metadata.updated");
 const ThreadTokenUsageUpdatedType = Schema.Literal("thread.token-usage.updated");
@@ -297,6 +299,18 @@ const ThreadStartedPayload = Schema.Struct({
   providerThreadId: Schema.optional(TrimmedNonEmptyStringSchema),
 });
 export type ThreadStartedPayload = typeof ThreadStartedPayload.Type;
+
+const ThreadHistorySyncedPayload = Schema.Struct({
+  messages: Schema.Array(
+    Schema.Struct({
+      messageId: TrimmedNonEmptyStringSchema,
+      role: Schema.Literals(["user", "assistant"]),
+      text: Schema.String,
+      createdAt: IsoDateTime,
+    }),
+  ),
+});
+export type ThreadHistorySyncedPayload = typeof ThreadHistorySyncedPayload.Type;
 
 const ThreadStateChangedPayload = Schema.Struct({
   state: RuntimeThreadState,
@@ -903,6 +917,14 @@ const ProviderRuntimeThreadStartedEvent = Schema.Struct({
 });
 export type ProviderRuntimeThreadStartedEvent = typeof ProviderRuntimeThreadStartedEvent.Type;
 
+const ProviderRuntimeThreadHistorySyncedEvent = Schema.Struct({
+  ...ProviderRuntimeEventBase.fields,
+  type: ThreadHistorySyncedType,
+  payload: ThreadHistorySyncedPayload,
+});
+export type ProviderRuntimeThreadHistorySyncedEvent =
+  typeof ProviderRuntimeThreadHistorySyncedEvent.Type;
+
 const ProviderRuntimeThreadStateChangedEvent = Schema.Struct({
   ...ProviderRuntimeEventBase.fields,
   type: ThreadStateChangedType,
@@ -1232,6 +1254,7 @@ export const ProviderRuntimeEventV2 = Schema.Union([
   ProviderRuntimeSessionStateChangedEvent,
   ProviderRuntimeSessionExitedEvent,
   ProviderRuntimeThreadStartedEvent,
+  ProviderRuntimeThreadHistorySyncedEvent,
   ProviderRuntimeThreadStateChangedEvent,
   ProviderRuntimeThreadMetadataUpdatedEvent,
   ProviderRuntimeThreadTokenUsageUpdatedEvent,

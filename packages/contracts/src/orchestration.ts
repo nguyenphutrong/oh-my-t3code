@@ -1449,6 +1449,24 @@ const ThreadHistoryImportCommand = Schema.Struct({
   ).check(Schema.isNonEmpty()),
 });
 
+const ThreadHistorySyncCommand = Schema.Struct({
+  type: Schema.Literal("thread.history.sync"),
+  commandId: CommandId,
+  threadId: ThreadId,
+  messages: Schema.Array(
+    Schema.Struct({
+      messageId: MessageId,
+      role: OrchestrationMessageRole,
+      text: Schema.String,
+      attachments: Schema.optional(Schema.Array(ChatAttachment)),
+      context: Schema.optional(OrchestrationMessageContext),
+      turnId: Schema.NullOr(TurnId),
+      createdAt: IsoDateTime,
+      updatedAt: IsoDateTime,
+    }),
+  ).check(Schema.isNonEmpty()),
+});
+
 /**
  * Persists a user message without starting a turn. Used by worktree bootstraps
  * so the send is durable while the worktree is still being prepared; the
@@ -1564,6 +1582,7 @@ const InternalOrchestrationCommand = Schema.Union([
   ThreadMessageAssistantDeltaCommand,
   ThreadMessageAssistantCompleteCommand,
   ThreadHistoryImportCommand,
+  ThreadHistorySyncCommand,
   ThreadMessageUserAppendCommand,
   ThreadProposedPlanUpsertCommand,
   ThreadTurnDiffCompleteCommand,
@@ -1906,6 +1925,7 @@ export const OrchestrationEventMetadata = Schema.Struct({
   requestId: Schema.optional(ApprovalRequestId),
   ingestedAt: Schema.optional(IsoDateTime),
   historyImport: Schema.optional(Schema.Boolean),
+  historySync: Schema.optional(Schema.Boolean),
   /**
    * The user message was persisted ahead of its turn (worktree bootstrap).
    * Reactors that key off a user message as "turn is starting" wait for the

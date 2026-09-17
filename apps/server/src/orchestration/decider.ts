@@ -2040,6 +2040,46 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
       return events;
     }
 
+    case "thread.history.sync": {
+      const thread = yield* requireThread({
+        readModel,
+        command,
+        threadId: command.threadId,
+      });
+      if (thread.deletedAt !== null) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Thread '${command.threadId}' is deleted.`,
+        });
+      }
+      return yield* Effect.forEach(command.messages, (message, index) =>
+        withEventBase({
+          aggregateKind: "thread",
+          aggregateId: command.threadId,
+          occurredAt: message.createdAt,
+          commandId: command.commandId,
+          ...(index === 0 ? { metadata: { historySync: true } } : {}),
+        }).pipe(
+          Effect.map((base) => ({
+            ...base,
+            type: "thread.message-sent" as const,
+            payload: {
+              threadId: command.threadId,
+              messageId: message.messageId,
+              role: message.role,
+              text: message.text,
+              ...(message.attachments !== undefined ? { attachments: message.attachments } : {}),
+              ...(message.context !== undefined ? { context: message.context } : {}),
+              turnId: message.turnId,
+              streaming: false,
+              createdAt: message.createdAt,
+              updatedAt: message.updatedAt,
+            },
+          })),
+        ),
+      );
+    }
+
     case "thread.proposed-plan.upsert": {
       yield* requireThread({
         readModel,

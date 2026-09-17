@@ -32,6 +32,7 @@ import {
 } from "../../persistence/Layers/Sqlite.ts";
 import { OrchestrationEventStore } from "../../persistence/Services/OrchestrationEventStore.ts";
 import { ProjectionStateRepository } from "../../persistence/Services/ProjectionState.ts";
+import { ProjectionThreadMessageRepository } from "../../persistence/Services/ProjectionThreadMessages.ts";
 import * as RepositoryIdentityResolver from "../../project/RepositoryIdentityResolver.ts";
 import { OrchestrationEngineLive } from "./OrchestrationEngine.ts";
 import {
@@ -64,6 +65,72 @@ const exists = (filePath: string) =>
 const BaseTestLayer = makeProjectionPipelinePrefixedTestLayer("t3-projection-pipeline-test-");
 const encodeThreadLinkedPullRequest = Schema.encodeSync(
   Schema.fromJsonString(ThreadLinkedPullRequest),
+);
+
+it.layer(Layer.fresh(makeProjectionPipelinePrefixedTestLayer("t3-history-sync-")))(
+  "Amp history sync projection",
+  (it) => {
+    it.effect("replaces persisted messages from the first synced event", () =>
+      Effect.gen(function* () {
+        const projectionPipeline = yield* OrchestrationProjectionPipeline;
+        const eventStore = yield* OrchestrationEventStore;
+        const messages = yield* ProjectionThreadMessageRepository;
+        const threadId = ThreadId.make("thread-history-sync");
+        const createdAt = "2026-09-17T10:00:00.000Z";
+
+        yield* messages.upsert({
+          messageId: MessageId.make("legacy-collision"),
+          threadId,
+          turnId: null,
+          role: "assistant",
+          text: "Merged response",
+          isStreaming: false,
+          createdAt,
+          updatedAt: createdAt,
+        });
+
+        for (const [index, messageId, role, text] of [
+          [0, "import:amp:user", "user", "Original prompt"],
+          [1, "import:amp:assistant", "assistant", "Recovered response"],
+        ] as const) {
+          const messageCreatedAt = `2026-09-17T10:00:0${index + 1}.000Z`;
+          const event = yield* eventStore.append({
+            type: "thread.message-sent",
+            eventId: EventId.make(`evt-history-sync-${index}`),
+            aggregateKind: "thread",
+            aggregateId: threadId,
+            occurredAt: messageCreatedAt,
+            commandId: CommandId.make("cmd-history-sync"),
+            causationEventId: null,
+            correlationId: CommandId.make("cmd-history-sync"),
+            metadata: index === 0 ? { historySync: true } : {},
+            payload: {
+              threadId,
+              messageId: MessageId.make(messageId),
+              role,
+              text,
+              turnId: null,
+              streaming: false,
+              createdAt: messageCreatedAt,
+              updatedAt: messageCreatedAt,
+            },
+          });
+          yield* projectionPipeline.projectEvent(event);
+        }
+
+        assert.deepEqual(
+          (yield* messages.listByThreadId({ threadId })).map(({ messageId, text }) => ({
+            messageId,
+            text,
+          })),
+          [
+            { messageId: "import:amp:user", text: "Original prompt" },
+            { messageId: "import:amp:assistant", text: "Recovered response" },
+          ],
+        );
+      }),
+    );
+  },
 );
 
 it.layer(Layer.fresh(makeProjectionPipelinePrefixedTestLayer("t3-projection-cursor-batch-")))(

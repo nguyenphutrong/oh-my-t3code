@@ -32,7 +32,9 @@ import {
 } from "../Errors.ts";
 import type { ProviderAdapterShape } from "../Services/ProviderAdapter.ts";
 import {
+  makeAmpCliExportThread,
   makeAmpCliExecute,
+  type AmpCliExportThread,
   type AmpCliExecute,
   type AmpCliImageInput,
   type AmpCliMessage,
@@ -51,6 +53,7 @@ export interface AmpAdapterOptions {
   readonly attachmentsDir: string;
   readonly environment?: NodeJS.ProcessEnv;
   readonly execute?: AmpCliExecute;
+  readonly exportThread?: AmpCliExportThread;
 }
 
 interface SessionContext {
@@ -173,6 +176,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
   const events = yield* PubSub.unbounded<ProviderRuntimeEvent>();
   const sessions = new Map<ThreadId, SessionContext>();
   const execute = options.execute ?? (yield* makeAmpCliExecute());
+  const exportThread = options.exportThread ?? (yield* makeAmpCliExportThread());
 
   const stamp = Effect.all({
     eventId: Effect.map(crypto.randomUUIDv4, EventId.make),
@@ -303,6 +307,37 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
           threadId: input.threadId,
           payload: { providerThreadId: savedThreadId },
         });
+      if (savedThreadId) {
+        const history = yield* exportThread({
+          binaryPath: config.binaryPath,
+          cwd,
+          environment: options.environment ?? process.env,
+          threadId: savedThreadId,
+          ...(config.settingsFile?.trim()
+            ? { settingsFile: expandHomePath(config.settingsFile.trim()) }
+            : {}),
+        }).pipe(
+          Effect.catch((cause) =>
+            Effect.logWarning("Could not sync Amp thread history", {
+              ampThreadId: savedThreadId,
+              cause,
+            }).pipe(Effect.as([])),
+          ),
+        );
+        if (history.length > 0)
+          yield* emit({
+            type: "thread.history.synced",
+            ...(yield* stamp),
+            provider: DRIVER_KIND,
+            threadId: input.threadId,
+            payload: {
+              messages: history.map((message) => ({
+                ...message,
+                messageId: `import:amp:${savedThreadId}:${message.messageId}`,
+              })),
+            },
+          });
+      }
       return session;
     });
 
