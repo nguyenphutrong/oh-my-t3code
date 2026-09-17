@@ -36,6 +36,10 @@ projects, threads, attachments, secrets, and paired-client sessions. The SQLite 
 snapshotted safely and the original T3 Code data is left unchanged. The two homes remain separate
 after import, so do not expect later changes in one app to appear in the other.
 
+To import the latest T3 Code state again, stop Oh My T3Code and run
+`oh-my-t3code import-t3`. The command keeps the previous Oh My T3Code `userdata` directory as a
+timestamped backup and prints its path.
+
 The executable is built for Apple Silicon Macs, Linux, and Windows. There is
 no Intel Mac build of it, because Node cannot produce a single executable for
 that platform; the Intel desktop app is unaffected. To run a standalone server
