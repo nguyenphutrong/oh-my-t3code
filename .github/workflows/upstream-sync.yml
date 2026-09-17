@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   sync:
-    name: Merge upstream into sync branch
+    name: Merge stable upstream release
     if: github.repository == 'nguyenphutrong/oh-my-t3code'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -27,7 +27,7 @@ jobs:
           fetch-depth: 0
           ref: main
 
-      - name: Merge upstream and update pull request
+      - name: Merge stable release and update pull request
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -40,13 +40,41 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream "$UPSTREAM_URL"
           git fetch --no-tags origin main:refs/remotes/origin/main
-          git fetch --no-tags upstream main:refs/remotes/upstream/main
 
-          missing_count="$(git rev-list --count origin/main..upstream/main)"
-          if [[ "$missing_count" == "0" ]]; then
-            echo "Upstream main has no commits missing from the fork."
+          # This endpoint returns one GitHub-selected stable release, so no paginated release scan is needed.
+          if ! release_json="$(gh api repos/pingdotgg/t3code/releases/latest)"; then
+            echo "### Upstream sync blocked" >> "$GITHUB_STEP_SUMMARY"
+            echo "No stable upstream GitHub Release could be retrieved. No changes were pushed." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::No stable upstream GitHub Release is available."
+            exit 1
+          fi
+
+          if ! release_tag="$(jq -er 'select(.draft == false and .prerelease == false) | .tag_name | select(type == "string" and length > 0)' <<< "$release_json")"; then
+            echo "### Upstream sync blocked" >> "$GITHUB_STEP_SUMMARY"
+            echo "The latest upstream release is not a valid stable release. No changes were pushed." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::The upstream release is a draft, prerelease, or has no valid tag."
+            exit 1
+          fi
+
+          if ! git check-ref-format "refs/tags/$release_tag" >/dev/null ||
+            ! git fetch --no-tags upstream "refs/tags/$release_tag:refs/upstream-release/tag"; then
+            echo "### Upstream sync blocked" >> "$GITHUB_STEP_SUMMARY"
+            echo "Stable release tag \`$release_tag\` does not exist or is invalid. No changes were pushed." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Stable release tag $release_tag could not be verified."
+            exit 1
+          fi
+
+          if ! release_commit="$(git rev-parse --verify 'refs/upstream-release/tag^{commit}')"; then
+            echo "### Upstream sync blocked" >> "$GITHUB_STEP_SUMMARY"
+            echo "Stable release tag \`$release_tag\` does not resolve to a commit. No changes were pushed." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Stable release tag $release_tag does not resolve to a commit."
+            exit 1
+          fi
+
+          if git merge-base --is-ancestor "$release_commit" origin/main; then
+            echo "Stable release $release_tag ($release_commit) is already in main."
             echo "### Upstream sync" >> "$GITHUB_STEP_SUMMARY"
-            echo "No new upstream commits were found." >> "$GITHUB_STEP_SUMMARY"
+            echo "Stable release \`$release_tag\` (\`$release_commit\`) is already synchronized." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
@@ -84,15 +112,17 @@ jobs:
           }
 
           merge_or_fail origin/main "the latest fork main"
-          merge_or_fail upstream/main "upstream/main"
+          if ! git merge-base --is-ancestor "$release_commit" HEAD; then
+            merge_or_fail refs/upstream-release/tag "stable release $release_tag ($release_commit)"
+          fi
           git push origin "HEAD:refs/heads/$SYNC_BRANCH"
 
-          upstream_sha="$(git rev-parse upstream/main)"
           body="$RUNNER_TEMP/upstream-sync-pr.md"
           cat > "$body" <<EOF
-          Automated merge of [pingdotgg/t3code](https://github.com/pingdotgg/t3code)'s \`main\` branch into this fork.
+          Automated merge of the latest stable [pingdotgg/t3code](https://github.com/pingdotgg/t3code) GitHub Release into this fork.
 
-          Upstream commit: \`$upstream_sha\`
+          Stable release: \`$release_tag\`
+          Source commit: \`$release_commit\`
 
           This pull request is updated by the weekly upstream sync workflow. Review and merge it manually; auto-merge is intentionally disabled.
           EOF
@@ -114,7 +144,7 @@ jobs:
           if [[ -n "$pr_number" ]]; then
             gh pr edit "$pr_number" \
               --repo "$GITHUB_REPOSITORY" \
-              --title "chore: sync upstream main" \
+              --title "chore: sync upstream $release_tag" \
               --body-file "$body" \
               --add-label upstream-sync
             echo "Updated pull request #$pr_number."
@@ -123,7 +153,7 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --base main \
               --head "$SYNC_BRANCH" \
-              --title "chore: sync upstream main" \
+              --title "chore: sync upstream $release_tag" \
               --body-file "$body" \
               --label upstream-sync
           fi
