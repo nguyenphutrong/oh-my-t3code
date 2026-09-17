@@ -776,7 +776,7 @@ export function projectEvent(
           "message",
         );
 
-        const previousMessages = event.metadata.historySync ? [] : thread.messages;
+        const previousMessages = event.metadata?.historySync ? [] : thread.messages;
         const existingMessage = previousMessages.find((entry) => entry.id === message.id);
         const messages = existingMessage
           ? previousMessages.map((entry) =>
