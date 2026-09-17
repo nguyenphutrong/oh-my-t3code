@@ -90,9 +90,6 @@ minimumReleaseAgeExclude:
   - "@anthropic-ai/claude-agent-sdk@0.3.260"
 
 overrides:
-  # Amp remains user-installed like Codex and Claude. This also lets the SDK honor AMP_CLI_PATH
-  # instead of always preferring its npm-bundled CLI over the configured provider executable.
-  "@ampcode/sdk>@ampcode/cli": "-"
   # Earlier React Navigation declarations create a circular type alias in TypeScript 7.
   "@react-navigation/core": 7.21.13
   # The dbus-next patch drops usocket from the package, but pnpm resolves from the

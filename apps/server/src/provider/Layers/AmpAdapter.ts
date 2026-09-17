@@ -1,12 +1,7 @@
 import {
-  createUserMessage,
-  execute as executeAmp,
-  type AmpOptions,
-  type StreamMessage,
-  type Usage,
-} from "@ampcode/sdk";
-import {
   EventId,
+  isProviderSendTurnSupportedImageMimeType,
+  PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   ProviderDriverKind,
   type ProviderInstanceId,
   type ProviderRuntimeEvent,
@@ -27,6 +22,7 @@ import * as PubSub from "effect/PubSub";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
+import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import { expandHomePath } from "../../pathExpansion.ts";
 import {
   ProviderAdapterRequestError,
@@ -35,7 +31,13 @@ import {
   type ProviderAdapterError,
 } from "../Errors.ts";
 import type { ProviderAdapterShape } from "../Services/ProviderAdapter.ts";
-import { startAmpExecution, type AmpSdkExecute } from "./AmpSdkRuntime.ts";
+import {
+  makeAmpCliExecute,
+  type AmpCliExecute,
+  type AmpCliImageInput,
+  type AmpCliMessage,
+  type AmpCliUsage,
+} from "./AmpCliRuntime.ts";
 
 type Adapter = ProviderAdapterShape<ProviderAdapterError>;
 
@@ -46,8 +48,9 @@ export interface AmpAdapterConfig {
 
 export interface AmpAdapterOptions {
   readonly instanceId: ProviderInstanceId;
+  readonly attachmentsDir: string;
   readonly environment?: NodeJS.ProcessEnv;
-  readonly execute?: AmpSdkExecute;
+  readonly execute?: AmpCliExecute;
 }
 
 interface SessionContext {
@@ -113,14 +116,6 @@ function boundedData(value: unknown): unknown {
     : { truncated: true, reason: "Amp tool payload exceeded the T3 Code event limit." };
 }
 
-function compactEnvironment(environment: NodeJS.ProcessEnv): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(environment).flatMap(([key, value]) =>
-      typeof value === "string" ? [[key, value]] : [],
-    ),
-  );
-}
-
 function toolItemType(name: string): CanonicalItemType {
   const normalized = name.toLowerCase();
   if (/bash|shell|terminal|command|exec/u.test(normalized)) return "command_execution";
@@ -132,7 +127,7 @@ function toolItemType(name: string): CanonicalItemType {
   return "dynamic_tool_call";
 }
 
-function tokenUsage(usage: Usage | undefined) {
+function tokenUsage(usage: AmpCliUsage | undefined) {
   if (!usage) return undefined;
   return {
     usageStatus: "complete" as const,
@@ -150,6 +145,15 @@ function tokenUsage(usage: Usage | undefined) {
 }
 
 function safeErrorDetail(error: unknown): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "_tag" in error &&
+    error._tag === "AmpCliRuntimeError" &&
+    "detail" in error &&
+    typeof error.detail === "string"
+  )
+    return boundedText(error.detail);
   const message = error instanceof Error ? error.message : String(error);
   if (/abort|cancel/iu.test(message)) return "Amp turn was cancelled.";
   if (/auth|login|unauthorized|credential/iu.test(message))
@@ -157,14 +161,6 @@ function safeErrorDetail(error: unknown): string {
   if (/not found|enoent|could not find amp/iu.test(message))
     return "Amp CLI was not found. Install Amp or configure its binary path.";
   return "Amp execution failed. Check the provider health details and server logs.";
-}
-
-function asyncPrompt(text: string, requestId: string) {
-  return {
-    async *[Symbol.asyncIterator]() {
-      yield createUserMessage(text, { requestId });
-    },
-  };
 }
 
 export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
@@ -176,7 +172,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
   const path = yield* Path.Path;
   const events = yield* PubSub.unbounded<ProviderRuntimeEvent>();
   const sessions = new Map<ThreadId, SessionContext>();
-  const execute = options.execute ?? executeAmp;
+  const execute = options.execute ?? (yield* makeAmpCliExecute());
 
   const stamp = Effect.all({
     eventId: Effect.map(crypto.randomUUIDv4, EventId.make),
@@ -313,7 +309,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
   const processMessage = (
     context: SessionContext,
     turnId: TurnId,
-    message: StreamMessage,
+    message: AmpCliMessage,
     activeTools: Map<string, CanonicalItemType>,
   ) =>
     Effect.gen(function* () {
@@ -324,6 +320,12 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
           detail: "Amp returned a message larger than 1 MiB.",
         });
       if (message.type === "system") {
+        if (message.subtype !== "init")
+          return yield* new ProviderAdapterRequestError({
+            provider: DRIVER_KIND,
+            method: "amp/stream",
+            detail: boundedText(message.error),
+          });
         if (context.ampThreadId && context.ampThreadId !== message.session_id)
           return yield* new ProviderAdapterRequestError({
             provider: DRIVER_KIND,
@@ -349,8 +351,11 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
       }
       if (message.type === "assistant") {
         for (const [index, content] of message.message.content.entries()) {
-          if (content.type === "text") {
-            const itemId = RuntimeItemId.make(`${message.message.id}:text:${index}`);
+          if (content.type === "text" || content.type === "thinking") {
+            const itemId = RuntimeItemId.make(
+              `${message.message.id ?? message.session_id}:${content.type}:${index}`,
+            );
+            const itemType = content.type === "text" ? "assistant_message" : "reasoning";
             yield* emit({
               type: "item.started",
               ...(yield* stamp),
@@ -358,7 +363,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
               threadId: context.threadId,
               turnId,
               itemId,
-              payload: { itemType: "assistant_message", status: "inProgress" },
+              payload: { itemType, status: "inProgress" },
             });
             yield* emit({
               type: "content.delta",
@@ -367,7 +372,10 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
               threadId: context.threadId,
               turnId,
               itemId,
-              payload: { streamKind: "assistant_text", delta: boundedText(content.text) },
+              payload: {
+                streamKind: content.type === "text" ? "assistant_text" : "reasoning_text",
+                delta: boundedText(content.type === "text" ? content.text : content.thinking),
+              },
             });
             yield* emit({
               type: "item.completed",
@@ -376,9 +384,9 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
               threadId: context.threadId,
               turnId,
               itemId,
-              payload: { itemType: "assistant_message", status: "completed" },
+              payload: { itemType, status: "completed" },
             });
-          } else {
+          } else if (content.type === "tool_use") {
             const itemType = toolItemType(content.name);
             activeTools.set(content.id, itemType);
             yield* emit({
@@ -453,6 +461,58 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
       }
     });
 
+  const resolveImageInput = Effect.fn("AmpAdapter.resolveImageInput")(function* (
+    attachment: NonNullable<Parameters<Adapter["sendTurn"]>[0]["attachments"]>[number],
+  ) {
+    if (attachment.type !== "image")
+      return yield* new ProviderAdapterValidationError({
+        provider: DRIVER_KIND,
+        operation: "sendTurn",
+        issue: "Amp CLI supports image attachments only.",
+      });
+    if (!isProviderSendTurnSupportedImageMimeType(attachment.mimeType))
+      return yield* new ProviderAdapterValidationError({
+        provider: DRIVER_KIND,
+        operation: "sendTurn",
+        issue: `Amp does not support image type '${attachment.mimeType}'.`,
+      });
+    const attachmentPath = resolveAttachmentPath({
+      attachmentsDir: options.attachmentsDir,
+      attachment,
+    });
+    if (!attachmentPath)
+      return yield* new ProviderAdapterValidationError({
+        provider: DRIVER_KIND,
+        operation: "sendTurn",
+        issue: `Invalid attachment id '${attachment.id}'.`,
+      });
+    const bytes = yield* fs.readFile(attachmentPath).pipe(
+      Effect.mapError(
+        (cause) =>
+          new ProviderAdapterRequestError({
+            provider: DRIVER_KIND,
+            method: "amp/attachment",
+            detail: `Failed to read attachment '${attachment.name}'.`,
+            cause,
+          }),
+      ),
+    );
+    if (bytes.byteLength === 0 || bytes.byteLength > PROVIDER_SEND_TURN_MAX_IMAGE_BYTES)
+      return yield* new ProviderAdapterValidationError({
+        provider: DRIVER_KIND,
+        operation: "sendTurn",
+        issue: `Attachment '${attachment.name}' is empty or larger than 10 MiB.`,
+      });
+    return {
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: attachment.mimeType,
+        data: Buffer.from(bytes).toString("base64"),
+      },
+    } satisfies AmpCliImageInput;
+  });
+
   const sendTurn: Adapter["sendTurn"] = (input) =>
     Effect.gen(function* () {
       const context = yield* requireSession(input.threadId);
@@ -462,18 +522,15 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
           operation: "sendTurn",
           issue: "Selected model belongs to another provider instance.",
         });
-      if ((input.attachments?.length ?? 0) > 0)
-        return yield* new ProviderAdapterValidationError({
-          provider: DRIVER_KIND,
-          operation: "sendTurn",
-          issue: "The official Amp SDK does not support attachments yet.",
-        });
       const text = input.input?.trim();
-      if (!text)
+      const imageInputs = yield* Effect.forEach(input.attachments ?? [], resolveImageInput, {
+        concurrency: 1,
+      });
+      if (!text && imageInputs.length === 0)
         return yield* new ProviderAdapterValidationError({
           provider: DRIVER_KIND,
           operation: "sendTurn",
-          issue: "Amp turns require a text prompt.",
+          issue: "Amp turns require text or a supported image attachment.",
         });
       return yield* context.lock.withPermit(
         Effect.gen(function* () {
@@ -516,55 +573,50 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
             payload: { model: mode, ...(effort ? { effort } : {}) },
           });
           return yield* Effect.gen(function* () {
-            const sdkOptions: AmpOptions = {
-              cwd: context.session.cwd,
+            const execution = {
+              binaryPath: config.binaryPath,
+              cwd: context.session.cwd!,
+              environment: options.environment ?? process.env,
+              message: {
+                type: "user" as const,
+                requestId: turnId,
+                message: {
+                  role: "user" as const,
+                  content: [...(text ? [{ type: "text" as const, text }] : []), ...imageInputs],
+                },
+              },
               mode,
-              ...(effort ? { effort: effort as AmpOptions["effort"] } : {}),
-              ...(context.ampThreadId ? { continue: context.ampThreadId } : {}),
+              ...(effort ? { effort } : {}),
+              ...(context.ampThreadId ? { continueThreadId: context.ampThreadId } : {}),
               ...(config.settingsFile?.trim()
                 ? { settingsFile: expandHomePath(config.settingsFile.trim()) }
                 : {}),
-              ...(options.environment ? { env: compactEnvironment(options.environment) } : {}),
-              visibility: "private",
-              noArchiveAfterExecute: true,
               dangerouslyAllowAll: context.session.runtimeMode === "full-access",
+              signal: abortController.signal,
             };
-            const started = yield* Effect.tryPromise({
-              try: () =>
-                startAmpExecution({
-                  execute,
-                  binaryPath: config.binaryPath,
-                  options: {
-                    prompt: asyncPrompt(text, turnId),
-                    options: sdkOptions,
-                    signal: abortController.signal,
-                  },
-                }),
-              catch: (cause) =>
-                new ProviderAdapterRequestError({
-                  provider: DRIVER_KIND,
-                  method: "amp/execute",
-                  detail: safeErrorDetail(cause),
-                  cause,
-                }),
-            });
             const activeTools = new Map<string, CanonicalItemType>();
-            let current = started.first;
-            let result: Extract<StreamMessage, { type: "result" }> | undefined;
-            while (!current.done) {
-              yield* processMessage(context, turnId, current.value, activeTools);
-              if (current.value.type === "result") result = current.value;
-              current = yield* Effect.tryPromise({
-                try: () => started.iterator.next(),
-                catch: (cause) =>
-                  new ProviderAdapterRequestError({
-                    provider: DRIVER_KIND,
-                    method: "amp/stream",
-                    detail: safeErrorDetail(cause),
-                    cause,
-                  }),
-              });
-            }
+            let result: Extract<AmpCliMessage, { type: "result" }> | undefined;
+            yield* execute(execution).pipe(
+              Stream.runForEach((message) =>
+                processMessage(context, turnId, message, activeTools).pipe(
+                  Effect.tap(() =>
+                    Effect.sync(() => {
+                      if (message.type === "result") result = message;
+                    }),
+                  ),
+                ),
+              ),
+              Effect.mapError((cause) =>
+                isAdapterError(cause)
+                  ? cause
+                  : new ProviderAdapterRequestError({
+                      provider: DRIVER_KIND,
+                      method: "amp/stream",
+                      detail: safeErrorDetail(cause),
+                      cause,
+                    }),
+              ),
+            );
             if (!result)
               return yield* new ProviderAdapterRequestError({
                 provider: DRIVER_KIND,
@@ -575,7 +627,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
               return yield* new ProviderAdapterRequestError({
                 provider: DRIVER_KIND,
                 method: "amp/execute",
-                detail: boundedText(result.error),
+                detail: boundedText(result.error ?? "Amp execution failed."),
               });
             context.session = {
               ...context.session,
@@ -694,7 +746,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
           new ProviderAdapterValidationError({
             provider: DRIVER_KIND,
             operation: "respondToUserInput",
-            issue: "The official Amp SDK does not support structured user input.",
+            issue: "The Amp CLI streaming protocol does not support structured user input.",
           }),
         ),
       ),
@@ -717,7 +769,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
           new ProviderAdapterValidationError({
             provider: DRIVER_KIND,
             operation: "readThread",
-            issue: "The official Amp SDK does not provide a structured conversation snapshot.",
+            issue: "The Amp CLI streaming protocol does not provide a conversation snapshot.",
           }),
         ),
       ),
@@ -728,7 +780,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
           new ProviderAdapterValidationError({
             provider: DRIVER_KIND,
             operation: "rollbackThread",
-            issue: "The official Amp SDK does not support conversation rewind.",
+            issue: "The Amp CLI streaming protocol does not support conversation rewind.",
           }),
         ),
       ),

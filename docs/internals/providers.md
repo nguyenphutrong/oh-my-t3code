@@ -35,30 +35,28 @@ elicitation operations return explicit adapter validation errors; they are not e
 ACP image blocks are capped at 8 MiB. Registry agents remain trusted local programs rather than a
 sandbox boundary.
 
-## Native Amp SDK boundary
+## Native Amp CLI boundary
 
-The native Amp driver uses the official `@ampcode/sdk` rather than routing through ACP. The
-[adapter](../../apps/server/src/provider/Layers/AmpAdapter.ts) owns T3 sessions and maps SDK
+The native Amp driver runs the official Amp CLI directly rather than routing through ACP. The
+[adapter](../../apps/server/src/provider/Layers/AmpAdapter.ts) owns T3 sessions and maps CLI
 system, assistant, tool, result, usage, cancellation, and explicit Amp thread IDs into the shared
 provider runtime. The community `amp-acp` registry entry remains an independent provider instance;
 there is no implicit migration between the two continuation formats.
 
-The SDK discovers a custom executable through process-global `AMP_CLI_PATH`. The
-[SDK runtime boundary](../../apps/server/src/provider/Layers/AmpSdkRuntime.ts) serializes only the
-child-process launch window, restores the previous environment immediately after the first SDK
-message, and then lets turns stream concurrently. This avoids both cross-instance binary
-substitution and whole-turn serialization. SDK messages are capped at 1 MiB before normalization,
-large event fields are truncated, and each active turn has its own `AbortController`.
+The [CLI runtime boundary](../../apps/server/src/provider/Layers/AmpCliRuntime.ts) spawns the
+configured executable with argument vectors, never a shell-built command. It uses `--execute`,
+`--stream-json-thinking`, and `--stream-json-input`; validates every JSONL message; caps each
+message at 1 MiB; bounds stderr; and terminates the child when a turn is cancelled or its scope
+closes. Custom executable paths are process-local and do not require mutating `AMP_CLI_PATH`.
 
 Amp threads use private visibility, disable archive-on-execute, and always continue a concrete
-thread ID. The SDK currently provides message-level streaming and text-only input, but no auth
-status API, model catalog, typed attachments, or in-process permission callback. Health checks
-therefore inspect only `amp --version` and an explicitly supplied `AMP_API_KEY`; they never read
-Amp credential files. Full access maps to `dangerouslyAllowAll`, while other modes retain Amp's
-non-interactive permission behavior and normalize reported denials.
-
-`@ampcode/sdk` is published under the Amp Commercial License / Amp Terms of Service. Release
-owners must confirm that distributing it with T3 Code is permitted before shipping this driver.
+thread ID. Streaming input carries text and supported image blocks. The CLI still provides no auth
+status API, model catalog, conversation snapshot, rollback operation, or in-process permission
+callback. Health checks therefore inspect only `amp --version` and an explicitly supplied
+`AMP_API_KEY`; they never read Amp credential files. Full access maps to
+`--dangerously-allow-all`, while other modes retain Amp's non-interactive permission behavior and
+normalize reported denials. Tool-denied text-generation calls use a scope-owned temporary settings
+file, preserving unrelated user settings and removing the file after the child exits.
 
 ## Process and account isolation
 

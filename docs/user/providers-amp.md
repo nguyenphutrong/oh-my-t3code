@@ -1,9 +1,8 @@
 # Amp
 
-T3 Code supports Amp as a native provider through the official
-[`@ampcode/sdk`](https://ampcode.com/docs/sdk). This integration is separate from the
-community `amp-acp` entry in ACP Registry; existing `amp-acp` instances are not changed or
-migrated.
+T3 Code supports Amp as a native provider by running the official Amp CLI in its documented
+streaming JSON mode. This integration is separate from the community `amp-acp` entry in ACP
+Registry; existing `amp-acp` instances are not changed or migrated.
 
 ## Set up Amp
 
@@ -24,18 +23,18 @@ cached-login state as unknown rather than inspecting credential files.
 
 ## Modes and sessions
 
-The model picker exposes Amp's **Low**, **Medium**, **High**, and **Ultra** modes, plus the reasoning
-effort values supported by the SDK. T3 Code stores Amp's explicit thread ID and uses it for later
+The model picker exposes Amp's **Low**, **Medium**, **High**, and **Ultra** modes, plus Amp's
+reasoning effort values. T3 Code stores Amp's explicit thread ID and uses it for later
 turns, so continuation never depends on whichever Amp thread happened to run most recently.
 
-Threads are created with private visibility and are not archived automatically when an SDK call
-finishes. Full access maps to Amp's `dangerouslyAllowAll` option. In other permission modes, Amp
-uses its non-interactive SDK permission policy; denied tools appear in the conversation, but the
-current SDK does not expose an in-process callback for T3 Code approval cards.
+Threads are created with private visibility and are not archived automatically when a turn
+finishes. Full access maps to Amp's `--dangerously-allow-all` option. In other permission modes,
+Amp uses its non-interactive permission policy; denied tools appear in the conversation, but the
+CLI streaming protocol does not expose an interactive callback for T3 Code approval cards.
 
-The official SDK currently accepts text prompts only. Image and file attachments are rejected
-before Amp starts, with an actionable error. Amp streams complete message blocks rather than token
-deltas, so text appears as each SDK message arrives.
+Text and PNG, JPEG, GIF, or WebP image attachments are sent through `--stream-json-input`. Other
+file attachments are rejected before Amp starts. Amp streams complete message blocks and thinking
+blocks rather than token deltas, so content appears as each CLI message arrives.
 
 Provider setup is managed from web or desktop. Mobile can select configured Amp instances and
 their modes when starting or updating a thread.

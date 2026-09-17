@@ -35,7 +35,6 @@ catalogs:
       version: 0.3.0
 
 overrides:
-  '@ampcode/sdk>@ampcode/cli': '-'
   '@react-navigation/core': 7.21.13
   dbus-next>usocket: '-'
   '@anthropic-ai/claude-agent-sdk>@anthropic-ai/claude-agent-sdk-darwin-arm64': '-'
@@ -495,9 +494,6 @@ importers:
 
   apps/server:
     dependencies:
-      '@ampcode/sdk':
-        specifier: 0.1.0-20260823161614-g3631dc6
-        version: 0.1.0-20260823161614-g3631dc6
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.3.260
         version: 0.3.260(@anthropic-ai/sdk@0.93.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
@@ -1087,11 +1083,6 @@ packages:
 
   '@alchemy.run/node-utils@2.0.0-beta.76':
     resolution: {integrity: sha512-KUAlGdoeWeMEToUP1V3I+mEf6FVzUjU+6Tc8savNvMsXN9t3uwZVqD1FeMzTMzMTJJijjxVljQTCtyoeE9W43w==}
-
-  '@ampcode/sdk@0.1.0-20260823161614-g3631dc6':
-    resolution: {integrity: sha512-miWxp589g98hUMEl5tgsKgnz/UZsGDXBJq+8VEaBYqpBujF4fTA5Y+fZ8gQqVb5H5yRK2u82UHIrRZKwklrf4A==}
-    engines: {node: '>=18'}
-    hasBin: true
 
   '@anthropic-ai/claude-agent-sdk@0.3.260':
     resolution: {integrity: sha512-PmABtP4Rwd6l95itQrqzguv6rS9uACqikPB9g8BPeWRKZOpy3xpEOjJLYauof3BFk2wNZnfhr0Ttx8ttcZzq0w==}
@@ -11430,10 +11421,6 @@ snapshots:
       effect: 4.0.0-rc.112(patch_hash=8bef799f35729cf3465eb428196f617b434a7c9f658d56acb2874d74b21b98b2)
 
   '@alchemy.run/node-utils@2.0.0-beta.76': {}
-
-  '@ampcode/sdk@0.1.0-20260823161614-g3631dc6':
-    dependencies:
-      zod: 3.25.76
 
   '@anthropic-ai/claude-agent-sdk@0.3.260(@anthropic-ai/sdk@0.93.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)':
     dependencies:

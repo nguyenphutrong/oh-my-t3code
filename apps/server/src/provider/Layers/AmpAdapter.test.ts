@@ -1,7 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import type { ExecuteOptions, StreamMessage } from "@ampcode/sdk";
 import {
   ProviderDriverKind,
   ProviderInstanceId,
@@ -9,15 +8,22 @@ import {
   ThreadId,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Fiber from "effect/Fiber";
 import * as Stream from "effect/Stream";
 
 import { makeAmpAdapter } from "./AmpAdapter.ts";
+import {
+  AmpCliRuntimeError,
+  type AmpCliExecute,
+  type AmpCliExecuteInput,
+  type AmpCliMessage,
+} from "./AmpCliRuntime.ts";
 
 const provider = ProviderDriverKind.make("amp");
 const instanceId = ProviderInstanceId.make("amp_test");
 
-function successfulMessages(sessionId = "T-amp-native-1"): ReadonlyArray<StreamMessage> {
+function successfulMessages(sessionId = "T-amp-native-1"): ReadonlyArray<AmpCliMessage> {
   return [
     {
       type: "system",
@@ -38,6 +44,7 @@ function successfulMessages(sessionId = "T-amp-native-1"): ReadonlyArray<StreamM
         model: "test-model",
         content: [
           { type: "text", text: "I will inspect the workspace." },
+          { type: "thinking", thinking: "I should inspect before editing." },
           { type: "tool_use", id: "tool-1", name: "Bash", input: { command: "pwd" } },
         ],
         stop_reason: "tool_use",
@@ -68,23 +75,27 @@ function successfulMessages(sessionId = "T-amp-native-1"): ReadonlyArray<StreamM
   ];
 }
 
-function executeFrom(messages: ReadonlyArray<StreamMessage>, calls: ExecuteOptions[]) {
-  return (options: ExecuteOptions): AsyncIterable<StreamMessage> => {
-    calls.push(options);
-    return {
-      async *[Symbol.asyncIterator]() {
-        yield* messages;
-      },
-    };
+function executeFrom(messages: ReadonlyArray<AmpCliMessage>, calls: AmpCliExecuteInput[]) {
+  return ((input) => {
+    calls.push(input);
+    return Stream.fromIterable(messages);
+  }) satisfies AmpCliExecute;
+}
+
+function adapterOptions(execute: AmpCliExecute, attachmentsDir = process.cwd()) {
+  return {
+    instanceId,
+    attachmentsDir,
+    execute,
   };
 }
 
 it.effect("runs a native Amp turn and maps text, tools, usage, and the resume cursor", () =>
   Effect.gen(function* () {
-    const calls: ExecuteOptions[] = [];
+    const calls: AmpCliExecuteInput[] = [];
     const adapter = yield* makeAmpAdapter(
       { binaryPath: "amp" },
-      { instanceId, execute: executeFrom(successfulMessages(), calls) },
+      adapterOptions(executeFrom(successfulMessages(), calls)),
     );
     const threadId = ThreadId.make("amp-native-success");
     const events: ProviderRuntimeEvent[] = [];
@@ -113,15 +124,13 @@ it.effect("runs a native Amp turn and maps text, tools, usage, and the resume cu
 
     expect(result.resumeCursor).toEqual({ schemaVersion: 1, threadId: "T-amp-native-1" });
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.options).toMatchObject({
+    expect(calls[0]).toMatchObject({
       cwd: process.cwd(),
       mode: "high",
       effort: "xhigh",
-      visibility: "private",
-      noArchiveAfterExecute: true,
       dangerouslyAllowAll: true,
     });
-    expect(calls[0]?.options?.continue).toBeUndefined();
+    expect(calls[0]?.continueThreadId).toBeUndefined();
     expect(events.map((event) => event.type)).toEqual(
       expect.arrayContaining([
         "session.started",
@@ -139,6 +148,11 @@ it.effect("runs a native Amp turn and maps text, tools, usage, and the resume cu
     expect(
       events.find((event) => event.itemId === "tool-1" && event.type === "item.completed"),
     ).toMatchObject({ payload: { itemType: "command_execution", status: "completed" } });
+    expect(
+      events.find(
+        (event) => event.type === "content.delta" && event.payload.streamKind === "reasoning_text",
+      ),
+    ).toMatchObject({ payload: { delta: "I should inspect before editing." } });
     expect(events.findLast((event) => event.type === "turn.completed")).toMatchObject({
       payload: {
         state: "completed",
@@ -150,10 +164,10 @@ it.effect("runs a native Amp turn and maps text, tools, usage, and the resume cu
 
 it.effect("continues only the Amp thread encoded in the resume cursor", () =>
   Effect.gen(function* () {
-    const calls: ExecuteOptions[] = [];
+    const calls: AmpCliExecuteInput[] = [];
     const adapter = yield* makeAmpAdapter(
       { binaryPath: "amp" },
-      { instanceId, execute: executeFrom(successfulMessages("T-existing"), calls) },
+      adapterOptions(executeFrom(successfulMessages("T-existing"), calls)),
     );
     const threadId = ThreadId.make("amp-native-resume");
     yield* adapter.startSession({
@@ -164,65 +178,67 @@ it.effect("continues only the Amp thread encoded in the resume cursor", () =>
     });
     yield* adapter.sendTurn({ threadId, input: "Continue", attachments: [] });
 
-    expect(calls[0]?.options?.continue).toBe("T-existing");
-    expect(calls[0]?.options?.continue).not.toBe(true);
-    expect(calls[0]?.options?.dangerouslyAllowAll).toBe(false);
+    expect(calls[0]?.continueThreadId).toBe("T-existing");
+    expect(calls[0]?.dangerouslyAllowAll).toBe(false);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
-it.effect("rejects attachments before launching Amp", () =>
+it.effect("sends stored images to Amp through stream-json input", () =>
   Effect.gen(function* () {
-    const calls: ExecuteOptions[] = [];
+    const fs = yield* FileSystem.FileSystem;
+    const attachmentsDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-amp-attachments-" });
+    const attachmentId = "amp-native-00000000-0000-4000-8000-000000000001-png";
+    yield* fs.writeFile(`${attachmentsDir}/${attachmentId}.png`, Uint8Array.from([1, 2, 3]));
+    const calls: AmpCliExecuteInput[] = [];
     const adapter = yield* makeAmpAdapter(
       { binaryPath: "amp" },
-      { instanceId, execute: executeFrom(successfulMessages(), calls) },
+      adapterOptions(executeFrom(successfulMessages(), calls), attachmentsDir),
     );
     const threadId = ThreadId.make("amp-native-attachment");
     yield* adapter.startSession({ threadId, cwd: process.cwd(), runtimeMode: "full-access" });
-    const error = yield* Effect.flip(
-      adapter.sendTurn({
-        threadId,
-        input: "Describe this",
-        attachments: [
-          {
-            type: "image",
-            id: "attachment-1",
-            name: "test.png",
-            mimeType: "image/png",
-            sizeBytes: 1,
-          },
-        ],
-      }),
-    );
-    expect(error).toMatchObject({
-      _tag: "ProviderAdapterValidationError",
-      issue: "The official Amp SDK does not support attachments yet.",
+    yield* adapter.sendTurn({
+      threadId,
+      input: "Describe this",
+      attachments: [
+        {
+          type: "image",
+          id: attachmentId,
+          name: "test.png",
+          mimeType: "image/png",
+          sizeBytes: 3,
+        },
+      ],
     });
-    expect(calls).toHaveLength(0);
+    expect(calls[0]?.message.message.content).toEqual([
+      { type: "text", text: "Describe this" },
+      {
+        type: "image",
+        source: { type: "base64", media_type: "image/png", data: "AQID" },
+      },
+    ]);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
-it.effect("aborts the active SDK execution without closing the provider session", () =>
+it.effect("aborts the active CLI execution without closing the provider session", () =>
   Effect.gen(function* () {
     const initialized = Promise.withResolvers<void>();
     const threadId = ThreadId.make("amp-native-cancel");
     const events: ProviderRuntimeEvent[] = [];
-    const execute = (options: ExecuteOptions): AsyncIterable<StreamMessage> => ({
-      async *[Symbol.asyncIterator]() {
-        yield successfulMessages()[0]!;
-        initialized.resolve();
-        await new Promise<never>((_resolve, reject) => {
-          if (options.signal?.aborted) {
-            reject(new Error("aborted"));
-            return;
-          }
-          options.signal?.addEventListener("abort", () => reject(new Error("aborted")), {
-            once: true,
-          });
-        });
-      },
-    });
-    const adapter = yield* makeAmpAdapter({ binaryPath: "amp" }, { instanceId, execute });
+    const execute: AmpCliExecute = (input) =>
+      Stream.concat(
+        Stream.make(successfulMessages()[0]!),
+        Stream.fromEffect(
+          Effect.callback<never, AmpCliRuntimeError>((resume) => {
+            initialized.resolve();
+            const abort = () =>
+              resume(Effect.fail(new AmpCliRuntimeError({ detail: "Amp turn was cancelled." })));
+            if (input.signal?.aborted) abort();
+            else input.signal?.addEventListener("abort", abort, { once: true });
+            return Effect.sync(() => input.signal?.removeEventListener("abort", abort));
+          }),
+        ),
+      );
+    const adapter = yield* makeAmpAdapter({ binaryPath: "amp" }, adapterOptions(execute));
     yield* adapter.streamEvents.pipe(
       Stream.runForEach((event) => Effect.sync(() => events.push(event))),
       Effect.forkChild,
@@ -261,10 +277,10 @@ it.effect("fails one turn when Amp emits an oversized message", () =>
           stop_reason: "end_turn",
           stop_sequence: null,
         },
-      } satisfies StreamMessage);
+      } satisfies AmpCliMessage);
     const adapter = yield* makeAmpAdapter(
       { binaryPath: "amp" },
-      { instanceId, execute: executeFrom(messages, []) },
+      adapterOptions(executeFrom(messages, [])),
     );
     const threadId = ThreadId.make("amp-native-oversized");
     yield* adapter.startSession({ threadId, cwd: process.cwd(), runtimeMode: "full-access" });

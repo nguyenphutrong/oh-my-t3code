@@ -1,13 +1,19 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import type { ExecuteOptions, StreamMessage } from "@ampcode/sdk";
 import { ProviderInstanceId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
+import * as Stream from "effect/Stream";
 
+import type {
+  AmpCliExecute,
+  AmpCliExecuteInput,
+  AmpCliMessage,
+} from "../provider/Layers/AmpCliRuntime.ts";
 import { makeAmpTextGeneration } from "./AmpTextGeneration.ts";
 
 const instanceId = ProviderInstanceId.make("amp_text_test");
 
-function resultMessages(result: string): ReadonlyArray<StreamMessage> {
+function resultMessages(result: string): ReadonlyArray<AmpCliMessage> {
   return [
     {
       type: "system",
@@ -31,14 +37,10 @@ function resultMessages(result: string): ReadonlyArray<StreamMessage> {
 
 it.effect("generates structured app text through a private tool-denied Amp execution", () =>
   Effect.gen(function* () {
-    const calls: ExecuteOptions[] = [];
-    const execute = (options: ExecuteOptions): AsyncIterable<StreamMessage> => {
-      calls.push(options);
-      return {
-        async *[Symbol.asyncIterator]() {
-          yield* resultMessages('{"branch":"Feature/Amp SDK"}');
-        },
-      };
+    const calls: AmpCliExecuteInput[] = [];
+    const execute: AmpCliExecute = (input) => {
+      calls.push(input);
+      return Stream.fromIterable(resultMessages('{"branch":"Feature/Amp CLI"}'));
     };
     const service = yield* makeAmpTextGeneration(
       { enabled: true, binaryPath: "amp", settingsFile: "" },
@@ -47,7 +49,7 @@ it.effect("generates structured app text through a private tool-denied Amp execu
     );
     const generated = yield* service.generateBranchName({
       cwd: process.cwd(),
-      message: "Add Amp SDK",
+      message: "Add Amp CLI",
       modelSelection: {
         instanceId,
         model: "high",
@@ -55,27 +57,21 @@ it.effect("generates structured app text through a private tool-denied Amp execu
       },
     });
 
-    expect(generated).toEqual({ branch: "feature/amp-sdk" });
-    expect(calls[0]?.options).toMatchObject({
+    expect(generated).toEqual({ branch: "feature/amp-cli" });
+    expect(calls[0]).toMatchObject({
       cwd: process.cwd(),
       mode: "high",
       effort: "xhigh",
-      visibility: "private",
-      noArchiveAfterExecute: true,
-      env: { AMP_API_KEY: "test-key" },
-      permissions: [{ tool: "*", action: "reject" }],
+      environment: { AMP_API_KEY: "test-key" },
+      denyTools: true,
     });
-    expect(calls[0]?.options?.continue).toBeUndefined();
-  }),
+    expect(calls[0]?.continueThreadId).toBeUndefined();
+  }).pipe(Effect.provide(NodeServices.layer)),
 );
 
 it.effect("rejects malformed Amp structured output", () =>
   Effect.gen(function* () {
-    const execute = (): AsyncIterable<StreamMessage> => ({
-      async *[Symbol.asyncIterator]() {
-        yield* resultMessages("not json");
-      },
-    });
+    const execute: AmpCliExecute = () => Stream.fromIterable(resultMessages("not json"));
     const service = yield* makeAmpTextGeneration(
       { enabled: true, binaryPath: "amp", settingsFile: "" },
       {},
@@ -94,5 +90,5 @@ it.effect("rejects malformed Amp structured output", () =>
       operation: "generateThreadTitle",
       detail: "Amp returned invalid structured output.",
     });
-  }),
+  }).pipe(Effect.provide(NodeServices.layer)),
 );

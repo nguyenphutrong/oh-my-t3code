@@ -677,7 +677,7 @@ export const AmpSettings = makeProviderSettingsSchema(
     binaryPath: makeBinaryPathSetting("amp").pipe(
       Schema.annotateKey({
         title: "Binary path",
-        description: "Path to the Amp CLI used by the official Amp SDK.",
+        description: "Path to the Amp CLI used by this provider instance.",
         providerSettingsForm: { placeholder: "amp", clearWhenEmpty: "omit" },
       }),
     ),

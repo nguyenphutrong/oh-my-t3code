@@ -7,9 +7,10 @@ import * as Schema from "effect/Schema";
 import { ChildProcessSpawner } from "effect/unstable/process";
 
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
+import { ServerConfig } from "../../config.ts";
+import { expandHomePath } from "../../pathExpansion.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
 import { makeAmpTextGeneration } from "../../textGeneration/AmpTextGeneration.ts";
-import { expandHomePath } from "../../pathExpansion.ts";
 import { ProviderDriverError } from "../Errors.ts";
 import { makeAmpAdapter } from "../Layers/AmpAdapter.ts";
 import { checkAmpProviderStatus, makeInitialAmpProvider } from "../Layers/AmpProvider.ts";
@@ -41,6 +42,7 @@ export type AmpDriverEnv =
   | Crypto.Crypto
   | FileSystem.FileSystem
   | Path.Path
+  | ServerConfig
   | ServerSettingsService;
 
 export const AmpDriver: ProviderDriver<AmpSettings, AmpDriverEnv> = {
@@ -51,6 +53,7 @@ export const AmpDriver: ProviderDriver<AmpSettings, AmpDriverEnv> = {
   create: ({ instanceId, displayName, accentColor, environment, enabled, config }) =>
     Effect.gen(function* () {
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const serverConfig = yield* ServerConfig;
       const serverSettings = yield* ServerSettingsService;
       const processEnvironment = mergeProviderInstanceEnvironment(environment);
       const settings = {
@@ -72,6 +75,7 @@ export const AmpDriver: ProviderDriver<AmpSettings, AmpDriverEnv> = {
       });
       const adapter = yield* makeAmpAdapter(settings, {
         instanceId,
+        attachmentsDir: serverConfig.attachmentsDir,
         environment: processEnvironment,
       });
       const textGeneration = yield* makeAmpTextGeneration(settings, processEnvironment);

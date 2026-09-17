@@ -1,9 +1,3 @@
-import {
-  createPermission,
-  execute as executeAmp,
-  type AmpOptions,
-  type StreamMessage,
-} from "@ampcode/sdk";
 import { type AmpSettings, type ModelSelection, TextGenerationError } from "@t3tools/contracts";
 import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@t3tools/shared/git";
 import { getProviderOptionStringSelectionValue } from "@t3tools/shared/model";
@@ -11,8 +5,13 @@ import { extractJsonObject } from "@t3tools/shared/schemaJson";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
 
-import { startAmpExecution, type AmpSdkExecute } from "../provider/Layers/AmpSdkRuntime.ts";
+import {
+  makeAmpCliExecute,
+  type AmpCliExecute,
+  type AmpCliMessage,
+} from "../provider/Layers/AmpCliRuntime.ts";
 import * as TextGeneration from "./TextGeneration.ts";
 import {
   buildBranchNamePrompt,
@@ -38,42 +37,30 @@ type Operation =
   | "generateBranchName"
   | "generateThreadTitle";
 
-function compactEnvironment(environment: NodeJS.ProcessEnv): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(environment).flatMap(([key, value]) =>
-      typeof value === "string" ? [[key, value]] : [],
-    ),
-  );
-}
-
 function ampOptions(input: {
   readonly settings: AmpSettings;
   readonly environment: NodeJS.ProcessEnv;
-  readonly cwd: string;
   readonly modelSelection: ModelSelection;
-}): AmpOptions {
+}) {
   const mode = VALID_MODES.has(input.modelSelection.model) ? input.modelSelection.model : "low";
   const effort = getProviderOptionStringSelectionValue(
     input.modelSelection.options,
     "reasoningEffort",
   );
   return {
-    cwd: input.cwd,
     mode,
-    ...(effort && VALID_EFFORTS.has(effort) ? { effort: effort as AmpOptions["effort"] } : {}),
+    ...(effort && VALID_EFFORTS.has(effort) ? { effort } : {}),
     ...(input.settings.settingsFile ? { settingsFile: input.settings.settingsFile } : {}),
-    env: compactEnvironment(input.environment),
-    visibility: "private",
-    noArchiveAfterExecute: true,
-    permissions: [createPermission("*", "reject")],
+    environment: input.environment,
   };
 }
 
 export const makeAmpTextGeneration = Effect.fn("makeAmpTextGeneration")(function* (
   settings: AmpSettings,
   environment: NodeJS.ProcessEnv = process.env,
-  execute: AmpSdkExecute = executeAmp,
+  executeOverride?: AmpCliExecute,
 ) {
+  const execute = executeOverride ?? (yield* makeAmpCliExecute());
   const runAmpJson = <S extends Schema.Top>(input: {
     readonly operation: Operation;
     readonly cwd: string;
@@ -84,37 +71,43 @@ export const makeAmpTextGeneration = Effect.fn("makeAmpTextGeneration")(function
     const abortController = new AbortController();
     return Effect.tryPromise({
       try: async () => {
-        const started = await startAmpExecution({
-          execute,
-          binaryPath: settings.binaryPath,
-          options: {
-            prompt: input.prompt,
-            options: ampOptions({
+        let assistantText = "";
+        let result: Extract<AmpCliMessage, { type: "result" }> | undefined;
+        await Effect.runPromise(
+          execute({
+            binaryPath: settings.binaryPath,
+            cwd: input.cwd,
+            message: {
+              type: "user",
+              message: {
+                role: "user",
+                content: [{ type: "text", text: input.prompt }],
+              },
+            },
+            ...ampOptions({
               settings,
               environment,
-              cwd: input.cwd,
               modelSelection: input.modelSelection,
             }),
             signal: abortController.signal,
-          },
-        });
-        let current = started.first;
-        let assistantText = "";
-        let result: Extract<StreamMessage, { type: "result" }> | undefined;
-        while (!current.done) {
-          const message = current.value;
-          if (message.type === "assistant")
-            for (const content of message.message.content)
-              if (content.type === "text") {
-                assistantText += content.text;
-                if (assistantText.length > MAX_OUTPUT_CHARS)
-                  throw new Error("Amp text generation output exceeded 1 MiB.");
-              }
-          if (message.type === "result") result = message;
-          current = await started.iterator.next();
-        }
+            denyTools: true,
+          }).pipe(
+            Stream.runForEach((message) =>
+              Effect.sync(() => {
+                if (message.type === "assistant")
+                  for (const content of message.message.content)
+                    if (content.type === "text") {
+                      assistantText += content.text;
+                      if (assistantText.length > MAX_OUTPUT_CHARS)
+                        throw new Error("Amp text generation output exceeded 1 MiB.");
+                    }
+                if (message.type === "result") result = message;
+              }),
+            ),
+          ),
+        );
         if (!result) throw new Error("Amp exited before returning a result.");
-        if (result.is_error) throw new Error(result.error);
+        if (result.is_error) throw new Error(result.error ?? "Amp execution failed.");
         const output = (result.result || assistantText).trim();
         if (!output) throw new Error("Amp returned empty output.");
         if (output.length > MAX_OUTPUT_CHARS)
@@ -124,7 +117,7 @@ export const makeAmpTextGeneration = Effect.fn("makeAmpTextGeneration")(function
       catch: (cause) =>
         new TextGenerationError({
           operation: input.operation,
-          detail: "Amp SDK text generation failed.",
+          detail: "Amp CLI text generation failed.",
           cause,
         }),
     }).pipe(
@@ -135,7 +128,7 @@ export const makeAmpTextGeneration = Effect.fn("makeAmpTextGeneration")(function
             Effect.fail(
               new TextGenerationError({
                 operation: input.operation,
-                detail: "Amp SDK text generation timed out.",
+                detail: "Amp CLI text generation timed out.",
               }),
             ),
           onSome: Effect.succeed,
