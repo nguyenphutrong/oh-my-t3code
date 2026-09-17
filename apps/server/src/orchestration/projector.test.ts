@@ -702,6 +702,67 @@ describe("orchestration projector", () => {
     expect(message?.updatedAt).toBe(completeAt);
   });
 
+  it("replaces existing messages when Amp history sync starts", async () => {
+    const createdAt = "2026-09-17T10:00:00.000Z";
+    let model = await Effect.runPromise(
+      projectEvent(
+        createEmptyReadModel(createdAt),
+        makeEvent({
+          sequence: 1,
+          type: "thread.created",
+          aggregateKind: "thread",
+          aggregateId: "thread-1",
+          occurredAt: createdAt,
+          commandId: "cmd-create",
+          payload: {
+            threadId: "thread-1",
+            projectId: "project-1",
+            title: "demo",
+            modelSelection: { provider: ProviderDriverKind.make("amp"), model: "smart" },
+            runtimeMode: "full-access",
+            branch: null,
+            worktreePath: null,
+            createdAt,
+            updatedAt: createdAt,
+          },
+        }),
+      ),
+    );
+
+    for (const [sequence, messageId, text, historySync] of [
+      [2, "legacy-collision", "Merged response", false],
+      [3, "import:amp:user", "Original prompt", true],
+      [4, "import:amp:assistant", "Recovered response", false],
+    ] as const) {
+      const event = makeEvent({
+        sequence,
+        type: "thread.message-sent",
+        aggregateKind: "thread",
+        aggregateId: "thread-1",
+        occurredAt: `2026-09-17T10:00:0${sequence}.000Z`,
+        commandId: "cmd-sync",
+        payload: {
+          threadId: "thread-1",
+          messageId,
+          role: messageId.endsWith("user") ? "user" : "assistant",
+          text,
+          turnId: null,
+          streaming: false,
+          createdAt: `2026-09-17T10:00:0${sequence}.000Z`,
+          updatedAt: `2026-09-17T10:00:0${sequence}.000Z`,
+        },
+      });
+      model = await Effect.runPromise(
+        projectEvent(model, historySync ? { ...event, metadata: { historySync: true } } : event),
+      );
+    }
+
+    expect(model.threads[0]?.messages.map(({ id, text }) => ({ id, text }))).toEqual([
+      { id: "import:amp:user", text: "Original prompt" },
+      { id: "import:amp:assistant", text: "Recovered response" },
+    ]);
+  });
+
   it("prunes reverted turn messages from in-memory thread snapshot", async () => {
     const createdAt = "2026-02-23T10:00:00.000Z";
     const model = createEmptyReadModel(createdAt);

@@ -1128,6 +1128,11 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
           return;
 
         case "thread.message-sent": {
+          if (event.metadata.historySync) {
+            yield* projectionThreadMessageRepository.deleteByThreadId({
+              threadId: event.payload.threadId,
+            });
+          }
           if (event.payload.streaming) {
             const attachments =
               event.payload.attachments !== undefined

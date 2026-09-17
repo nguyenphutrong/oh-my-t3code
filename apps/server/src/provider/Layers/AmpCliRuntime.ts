@@ -1,6 +1,7 @@
 import type { ChatImageAttachment } from "@t3tools/contracts";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 import * as Data from "effect/Data";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -13,6 +14,7 @@ import { collectUint8StreamText } from "../../stream/collectUint8StreamText.ts";
 
 const MAX_MESSAGE_BYTES = 1024 * 1024;
 const MAX_STDERR_BYTES = 16 * 1024;
+const MAX_EXPORT_BYTES = 16 * 1024 * 1024;
 
 const AmpUsage = Schema.Struct({
   input_tokens: Schema.Number,
@@ -97,8 +99,29 @@ const AmpCliMessageSchema = Schema.Union([
   }),
 ]);
 
+const AmpThreadExportSchema = Schema.Struct({
+  created: Schema.Union([Schema.String, Schema.Number]),
+  messages: Schema.Array(
+    Schema.Struct({
+      role: Schema.Literals(["user", "assistant", "info"]),
+      protocolMessageID: Schema.String,
+      createdAt: Schema.optional(Schema.NullOr(Schema.String)),
+      content: Schema.Array(
+        Schema.Struct({
+          type: Schema.String,
+          text: Schema.optional(Schema.String),
+          hidden: Schema.optional(Schema.Boolean),
+        }),
+      ),
+    }),
+  ),
+});
+
 const AmpSettingsFileSchema = Schema.Record(Schema.String, Schema.Unknown);
 const decodeAmpCliMessage = Schema.decodeUnknownSync(Schema.fromJsonString(AmpCliMessageSchema));
+const decodeAmpThreadExport = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(AmpThreadExportSchema),
+);
 const decodeAmpSettingsFile = Schema.decodeUnknownEffect(
   Schema.fromJsonString(AmpSettingsFileSchema),
 );
@@ -107,6 +130,13 @@ const encodeAmpSettingsFile = Schema.encodeSync(Schema.fromJsonString(AmpSetting
 
 export type AmpCliMessage = typeof AmpCliMessageSchema.Type;
 export type AmpCliUsage = typeof AmpUsage.Type;
+
+export interface AmpThreadHistoryMessage {
+  readonly messageId: string;
+  readonly role: "user" | "assistant";
+  readonly text: string;
+  readonly createdAt: string;
+}
 
 export interface AmpCliImageInput {
   readonly type: "image";
@@ -150,6 +180,18 @@ export class AmpCliRuntimeError extends Data.TaggedError("AmpCliRuntimeError")<{
 export type AmpCliExecute = (
   input: AmpCliExecuteInput,
 ) => Stream.Stream<AmpCliMessage, AmpCliRuntimeError>;
+
+export interface AmpCliExportThreadInput {
+  readonly binaryPath: string;
+  readonly cwd: string;
+  readonly environment: NodeJS.ProcessEnv;
+  readonly threadId: string;
+  readonly settingsFile?: string | undefined;
+}
+
+export type AmpCliExportThread = (
+  input: AmpCliExportThreadInput,
+) => Effect.Effect<ReadonlyArray<AmpThreadHistoryMessage>, AmpCliRuntimeError>;
 
 function executionError(detail: string, cause?: unknown): AmpCliRuntimeError {
   return new AmpCliRuntimeError({ detail, ...(cause === undefined ? {} : { cause }) });
@@ -341,4 +383,74 @@ export const makeAmpCliExecute = Effect.fn("makeAmpCliExecute")(function* () {
         );
       }),
     )) satisfies AmpCliExecute;
+});
+
+export const makeAmpCliExportThread = Effect.fn("makeAmpCliExportThread")(function* () {
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+
+  return ((input) =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const args = ["threads", "export", input.threadId];
+        if (input.settingsFile) args.push("--settings-file", input.settingsFile);
+        const resolved = yield* resolveSpawnCommand(input.binaryPath || "amp", args, {
+          env: input.environment,
+        }).pipe(
+          Effect.mapError((cause) => executionError("Could not resolve the Amp CLI.", cause)),
+        );
+        const child = yield* spawner
+          .spawn(
+            ChildProcess.make(resolved.command, resolved.args, {
+              cwd: input.cwd,
+              env: input.environment,
+              shell: resolved.shell,
+            }),
+          )
+          .pipe(Effect.mapError((cause) => executionError("Could not start the Amp CLI.", cause)));
+
+        const [exitCode, stdout, stderr] = yield* Effect.all(
+          [
+            child.exitCode,
+            collectUint8StreamText({ stream: child.stdout, maxBytes: MAX_EXPORT_BYTES }),
+            collectUint8StreamText({ stream: child.stderr, maxBytes: MAX_STDERR_BYTES }),
+          ],
+          { concurrency: "unbounded" },
+        ).pipe(Effect.mapError((cause) => executionError("Amp thread export failed.", cause)));
+        if (Number(exitCode) !== 0) {
+          return yield* executionError(
+            /auth|login|unauthorized|credential/iu.test(stderr.text)
+              ? "Amp authentication is required. Run `amp login` and try again."
+              : `Amp CLI exited with code ${Number(exitCode)} while exporting thread history.`,
+          );
+        }
+        if (stdout.truncated || stdout.invalidUtf8) {
+          return yield* executionError("Amp returned an invalid or oversized thread export.");
+        }
+        const exported = yield* decodeAmpThreadExport(stdout.text).pipe(
+          Effect.mapError((cause) =>
+            executionError("Amp returned an invalid thread export.", cause),
+          ),
+        );
+        const createdAt =
+          typeof exported.created === "number"
+            ? DateTime.formatIso(DateTime.makeUnsafe(exported.created))
+            : exported.created;
+        return exported.messages.flatMap((message): AmpThreadHistoryMessage[] => {
+          if (message.role === "info") return [];
+          const text = message.content
+            .filter((content) => content.type === "text" && content.hidden !== true)
+            .flatMap((content) => (content.text === undefined ? [] : [content.text]))
+            .join("");
+          if (!text.trim()) return [];
+          return [
+            {
+              messageId: message.protocolMessageID,
+              role: message.role,
+              text,
+              createdAt: message.createdAt ?? createdAt,
+            },
+          ];
+        });
+      }),
+    )) satisfies AmpCliExportThread;
 });

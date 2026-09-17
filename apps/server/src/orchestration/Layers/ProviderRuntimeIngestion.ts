@@ -146,6 +146,31 @@ function sameId(left: string | null | undefined, right: string | null | undefine
   return left === right;
 }
 
+export function findMissingHistoryMessages(
+  existingMessages: ReadonlyArray<{
+    readonly id: string;
+    readonly role: "user" | "assistant";
+    readonly text: string;
+  }>,
+  syncedMessages: Extract<
+    ProviderRuntimeEvent,
+    { type: "thread.history.synced" }
+  >["payload"]["messages"],
+) {
+  const existingIds = new Set(existingMessages.map((message) => message.id));
+  let existingCursor = 0;
+  return syncedMessages.filter((message) => {
+    const matchingIndex = existingMessages.findIndex(
+      (existing, candidateIndex) =>
+        candidateIndex >= existingCursor &&
+        (existing.id === message.messageId ||
+          (existing.role === message.role && existing.text === message.text)),
+    );
+    if (matchingIndex >= 0) existingCursor = matchingIndex + 1;
+    return !existingIds.has(message.messageId) && matchingIndex < 0;
+  });
+}
+
 function hasCheckpointForTurn(
   checkpoints: ReadonlyArray<OrchestrationCheckpointSummary>,
   turnId: TurnId,
@@ -1602,6 +1627,61 @@ const make = Effect.gen(function* () {
 
       const thread = yield* resolveThreadRuntimeContext(event.threadId);
       if (!thread) return;
+
+      if (event.type === "thread.history.synced") {
+        const existingMessages = yield* projectionThreadMessages.listByThreadId({
+          threadId: thread.id,
+        });
+        const missingMessages = findMissingHistoryMessages(
+          existingMessages.flatMap((message) =>
+            message.role === "system"
+              ? []
+              : [
+                  {
+                    id: message.messageId,
+                    role: message.role,
+                    text: message.text,
+                  },
+                ],
+          ),
+          event.payload.messages,
+        );
+        if (missingMessages.length === 0) return;
+        const latestSyncedAt = Math.max(
+          ...event.payload.messages.map(
+            (message) => DateTime.makeUnsafe(message.createdAt).epochMilliseconds,
+          ),
+        );
+        const trailingMessages = existingMessages.filter(
+          (message) => DateTime.makeUnsafe(message.createdAt).epochMilliseconds > latestSyncedAt,
+        );
+        yield* orchestrationEngine.dispatch({
+          type: "thread.history.sync",
+          commandId: yield* providerCommandId(event, "thread-history-sync"),
+          threadId: thread.id,
+          messages: [
+            ...event.payload.messages.map((message) => ({
+              ...message,
+              messageId: MessageId.make(message.messageId),
+              turnId: null,
+              updatedAt: message.createdAt,
+            })),
+            ...trailingMessages.map((message) => ({
+              messageId: message.messageId,
+              role: message.role,
+              text: message.text,
+              ...(message.attachments !== undefined
+                ? { attachments: [...message.attachments] }
+                : {}),
+              ...(message.context !== undefined ? { context: message.context } : {}),
+              turnId: message.turnId,
+              createdAt: message.createdAt,
+              updatedAt: message.updatedAt,
+            })),
+          ],
+        });
+        return;
+      }
 
       const now = event.createdAt;
       const eventTurnId = toTurnId(event.turnId);
