@@ -319,6 +319,10 @@
       "types": "./src/nodeSqliteClient.ts",
       "import": "./src/nodeSqliteClient.ts"
     },
+    "./legacyHomeMigration": {
+      "types": "./src/legacyHomeMigration.ts",
+      "import": "./src/legacyHomeMigration.ts"
+    },
     "./hostClassification": {
       "types": "./src/hostClassification.ts",
       "import": "./src/hostClassification.ts"

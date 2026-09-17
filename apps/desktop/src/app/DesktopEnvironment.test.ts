@@ -2,8 +2,10 @@ import * as NodePath from "@effect/platform-node/NodePath";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 import * as DesktopConfig from "./DesktopConfig.ts";
@@ -114,6 +116,31 @@ describe("DesktopEnvironment", () => {
       assert.equal(environment.serverSettingsPath, "/tmp/t3/userdata/settings.json");
       assert.equal(environment.otlpProtocol, "http/json");
     }),
+  );
+
+  it.effect("imports legacy state before exposing the packaged default environment", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const homeDirectory = yield* fileSystem.makeTempDirectoryScoped({
+          prefix: "desktop-environment-migration-",
+        });
+        const sourceSettingsPath = path.join(homeDirectory, ".t3", "userdata", "settings.json");
+        yield* fileSystem.makeDirectory(path.dirname(sourceSettingsPath), { recursive: true });
+        yield* fileSystem.writeFileString(sourceSettingsPath, '{"provider":"codex"}\n');
+
+        const environment = yield* makeEnvironment({ homeDirectory, isPackaged: true });
+
+        assert.equal(environment.baseDir, path.join(homeDirectory, ".oh-my-t3code"));
+        assert.equal(
+          yield* fileSystem.readFileString(
+            path.join(homeDirectory, ".oh-my-t3code", "userdata", "settings.json"),
+          ),
+          '{"provider":"codex"}\n',
+        );
+      }),
+    ).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect("uses the packaged Windows server sidecar as the backend root", () =>

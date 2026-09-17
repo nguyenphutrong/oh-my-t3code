@@ -30,6 +30,12 @@ irm https://raw.githubusercontent.com/nguyenphutrong/oh-my-t3code/main/scripts/i
 Run `oh-my-t3code` to start the server and open the local web app. Run
 `oh-my-t3code --help` for command-line options.
 
+On the first production launch, if `~/.oh-my-t3code/userdata` has not been initialized and an
+existing T3 Code home is present at `~/.t3`, Oh My T3Code imports its settings, providers,
+projects, threads, attachments, secrets, and paired-client sessions. The SQLite database is
+snapshotted safely and the original T3 Code data is left unchanged. The two homes remain separate
+after import, so do not expect later changes in one app to appear in the other.
+
 The executable is built for Apple Silicon Macs, Linux, and Windows. There is
 no Intel Mac build of it, because Node cannot produce a single executable for
 that platform; the Intel desktop app is unaffected. To run a standalone server

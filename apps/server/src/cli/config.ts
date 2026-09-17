@@ -1,7 +1,9 @@
 import * as NetService from "@t3tools/shared/Net";
+import { migrateLegacyT3Home } from "@t3tools/shared/legacyHomeMigration";
 import { OtlpHeadersFromString, OtlpProtocol } from "@t3tools/shared/observability";
 import { parsePersistedServerObservabilitySettings } from "@t3tools/shared/serverSettings";
 import { DesktopBackendBootstrap, PortSchema } from "@t3tools/contracts";
+import * as NodeOS from "node:os";
 import * as Config from "effect/Config";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -308,6 +310,17 @@ export const resolveServerConfig = (
         resolveOptionPrecedence(explicitBaseDir, Option.fromUndefinedOr(bootstrap?.t3Home)),
       ),
     );
+    if (Option.isNone(explicitBaseDir) && bootstrap?.t3Home === undefined && devUrl === undefined) {
+      const migration = yield* migrateLegacyT3Home({
+        sourceBaseDir: path.join(NodeOS.homedir(), ".t3"),
+        destinationBaseDir: baseDir,
+      });
+      if (migration.status === "migrated") {
+        yield* Effect.logInfo("Imported existing T3 Code data into Oh My T3Code", {
+          entries: migration.entries,
+        });
+      }
+    }
     const rawCwd = Option.getOrElse(normalizedFlags.cwd, () => process.cwd());
     const cwd = path.resolve(yield* expandHomePath(rawCwd.trim()));
     yield* fs.makeDirectory(cwd, { recursive: true });

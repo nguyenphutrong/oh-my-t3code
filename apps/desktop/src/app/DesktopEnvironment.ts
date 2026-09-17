@@ -7,10 +7,12 @@ import type {
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
+import { LegacyHomeMigrationError, migrateLegacyT3Home } from "@t3tools/shared/legacyHomeMigration";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopConfig from "./DesktopConfig.ts";
 import { resolveLinuxDesktopEntryName } from "./DesktopEarlyElectronStartup.ts";
@@ -148,7 +150,11 @@ function resolveDesktopRuntimeInfo(input: {
 
 const make = Effect.fn("desktop.environment.make")(function* (
   input: MakeDesktopEnvironmentInput,
-): Effect.fn.Return<DesktopEnvironment["Service"], Config.ConfigError, Path.Path> {
+): Effect.fn.Return<
+  DesktopEnvironment["Service"],
+  Config.ConfigError | LegacyHomeMigrationError,
+  FileSystem.FileSystem | Path.Path
+> {
   const path = yield* Path.Path;
   const config = yield* DesktopConfig.DesktopConfig;
   const homeDirectory = input.homeDirectory;
@@ -191,6 +197,18 @@ const make = Effect.fn("desktop.environment.make")(function* (
     "applications",
   );
   const resourcesPath = input.resourcesPath;
+
+  if (input.isPackaged && !isDevelopment && baseDir === path.join(homeDirectory, ".oh-my-t3code")) {
+    const migration = yield* migrateLegacyT3Home({
+      sourceBaseDir: path.join(homeDirectory, ".t3"),
+      destinationBaseDir: baseDir,
+    });
+    if (migration.status === "migrated") {
+      yield* Effect.logInfo("Imported existing T3 Code data into Oh My T3Code", {
+        entries: migration.entries,
+      });
+    }
+  }
 
   return DesktopEnvironment.of({
     path,
