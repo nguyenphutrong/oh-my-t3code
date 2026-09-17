@@ -311,6 +311,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
     turnId: TurnId,
     message: AmpCliMessage,
     activeTools: Map<string, CanonicalItemType>,
+    assistantTexts: Set<string>,
   ) =>
     Effect.gen(function* () {
       if (serializedSize(message) > MAX_MESSAGE_BYTES)
@@ -350,6 +351,11 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
         return;
       }
       if (message.type === "assistant") {
+        const messageText = message.message.content
+          .filter((content) => content.type === "text")
+          .map((content) => content.text)
+          .join("");
+        if (messageText.trim()) assistantTexts.add(messageText.trim());
         for (const [index, content] of message.message.content.entries()) {
           if (content.type === "text" || content.type === "thinking") {
             const itemId = RuntimeItemId.make(
@@ -458,6 +464,37 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
             turnId,
             payload: { toolName: "Amp tool", reason: boundedText(denial) },
           });
+        const resultText = message.result?.trim();
+        if (!failed && resultText && !assistantTexts.has(resultText)) {
+          const itemId = RuntimeItemId.make(`${turnId}:result`);
+          yield* emit({
+            type: "item.started",
+            ...(yield* stamp),
+            provider: DRIVER_KIND,
+            threadId: context.threadId,
+            turnId,
+            itemId,
+            payload: { itemType: "assistant_message", status: "inProgress" },
+          });
+          yield* emit({
+            type: "content.delta",
+            ...(yield* stamp),
+            provider: DRIVER_KIND,
+            threadId: context.threadId,
+            turnId,
+            itemId,
+            payload: { streamKind: "assistant_text", delta: boundedText(resultText) },
+          });
+          yield* emit({
+            type: "item.completed",
+            ...(yield* stamp),
+            provider: DRIVER_KIND,
+            threadId: context.threadId,
+            turnId,
+            itemId,
+            payload: { itemType: "assistant_message", status: "completed" },
+          });
+        }
       }
     });
 
@@ -592,10 +629,11 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
               signal: abortController.signal,
             };
             const activeTools = new Map<string, CanonicalItemType>();
+            const assistantTexts = new Set<string>();
             let result: Extract<AmpCliMessage, { type: "result" }> | undefined;
             yield* execute(execution).pipe(
               Stream.runForEach((message) =>
-                processMessage(context, turnId, message, activeTools).pipe(
+                processMessage(context, turnId, message, activeTools, assistantTexts).pipe(
                   Effect.tap(() =>
                     Effect.sync(() => {
                       if (message.type === "result") result = message;

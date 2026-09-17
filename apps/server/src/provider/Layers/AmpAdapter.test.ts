@@ -153,12 +153,58 @@ it.effect("runs a native Amp turn and maps text, tools, usage, and the resume cu
         (event) => event.type === "content.delta" && event.payload.streamKind === "reasoning_text",
       ),
     ).toMatchObject({ payload: { delta: "I should inspect before editing." } });
+    expect(
+      events.find(
+        (event) =>
+          event.type === "content.delta" &&
+          event.payload.streamKind === "assistant_text" &&
+          event.payload.delta === "done",
+      ),
+    ).toBeDefined();
     expect(events.findLast((event) => event.type === "turn.completed")).toMatchObject({
       payload: {
         state: "completed",
         tokenUsage: { inputTokens: 11, outputTokens: 7, cachedInputTokens: 3 },
       },
     });
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
+it.effect("does not duplicate the final Amp result when it was already streamed", () =>
+  Effect.gen(function* () {
+    const messages = successfulMessages().map((message) => {
+      if (message.type === "assistant") {
+        return {
+          ...message,
+          message: {
+            ...message.message,
+            content: [{ type: "text" as const, text: "complete response" }],
+          },
+        };
+      }
+      if (message.type === "result") return { ...message, result: "complete response" };
+      return message;
+    });
+    const adapter = yield* makeAmpAdapter(
+      { binaryPath: "amp" },
+      adapterOptions(executeFrom(messages, [])),
+    );
+    const threadId = ThreadId.make("amp-native-result-sync");
+    const deltas: string[] = [];
+    yield* adapter.streamEvents.pipe(
+      Stream.runForEach((event) =>
+        Effect.sync(() => {
+          if (event.type === "content.delta" && event.payload.streamKind === "assistant_text")
+            deltas.push(event.payload.delta);
+        }),
+      ),
+      Effect.forkChild,
+    );
+
+    yield* adapter.startSession({ threadId, cwd: process.cwd(), runtimeMode: "full-access" });
+    yield* adapter.sendTurn({ threadId, input: "Respond", attachments: [] });
+
+    expect(deltas).toEqual(["complete response"]);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
