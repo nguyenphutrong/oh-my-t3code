@@ -33,8 +33,9 @@ Amp uses its non-interactive permission policy; denied tools appear in the conve
 CLI streaming protocol does not expose an interactive callback for T3 Code approval cards.
 
 Text and PNG, JPEG, GIF, or WebP image attachments are sent through `--stream-json-input`. Other
-file attachments are rejected before Amp starts. Amp streams complete message blocks and thinking
-blocks rather than token deltas, so content appears as each CLI message arrives.
+files—including Markdown, PDFs, audio, and video—are provided as safe local paths in the prompt so
+Amp can inspect them with its tools. Amp streams complete message blocks and thinking blocks rather
+than token deltas, so content appears as each CLI message arrives.
 
 Provider setup is managed from web or desktop. Mobile can select configured Amp instances and
 their modes when starting or updating a thread.

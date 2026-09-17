@@ -219,6 +219,35 @@ it.effect("sends stored images to Amp through stream-json input", () =>
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
+it.effect("leaves generic files as prompt path references", () =>
+  Effect.gen(function* () {
+    const calls: AmpCliExecuteInput[] = [];
+    const adapter = yield* makeAmpAdapter(
+      { binaryPath: "amp" },
+      adapterOptions(executeFrom(successfulMessages(), calls)),
+    );
+    const threadId = ThreadId.make("amp-native-file");
+    yield* adapter.startSession({ threadId, cwd: process.cwd(), runtimeMode: "full-access" });
+
+    const prompt = "Inspect the attached PDF at: /safe/attachments/report.pdf";
+    yield* adapter.sendTurn({
+      threadId,
+      input: prompt,
+      attachments: [
+        {
+          type: "file",
+          id: "amp-native-00000000-0000-4000-8000-000000000002-pdf",
+          name: "report.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 3,
+        },
+      ],
+    });
+
+    expect(calls[0]?.message.message.content).toEqual([{ type: "text", text: prompt }]);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
 it.effect("aborts the active CLI execution without closing the provider session", () =>
   Effect.gen(function* () {
     const initialized = Promise.withResolvers<void>();

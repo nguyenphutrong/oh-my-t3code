@@ -464,12 +464,9 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
   const resolveImageInput = Effect.fn("AmpAdapter.resolveImageInput")(function* (
     attachment: NonNullable<Parameters<Adapter["sendTurn"]>[0]["attachments"]>[number],
   ) {
-    if (attachment.type !== "image")
-      return yield* new ProviderAdapterValidationError({
-        provider: DRIVER_KIND,
-        operation: "sendTurn",
-        issue: "Amp CLI supports image attachments only.",
-      });
+    // Generic files reach Amp through the safe local path ProviderService adds
+    // to the prompt. Only images have a native stream-json input block.
+    if (attachment.type !== "image") return undefined;
     if (!isProviderSendTurnSupportedImageMimeType(attachment.mimeType))
       return yield* new ProviderAdapterValidationError({
         provider: DRIVER_KIND,
@@ -523,9 +520,9 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
           issue: "Selected model belongs to another provider instance.",
         });
       const text = input.input?.trim();
-      const imageInputs = yield* Effect.forEach(input.attachments ?? [], resolveImageInput, {
+      const imageInputs = (yield* Effect.forEach(input.attachments ?? [], resolveImageInput, {
         concurrency: 1,
-      });
+      })).filter((attachment): attachment is AmpCliImageInput => attachment !== undefined);
       if (!text && imageInputs.length === 0)
         return yield* new ProviderAdapterValidationError({
           provider: DRIVER_KIND,
