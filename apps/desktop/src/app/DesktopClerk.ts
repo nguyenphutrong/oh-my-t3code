@@ -1,3 +1,5 @@
+// @effect-diagnostics nodeBuiltinImport:off - Clerk must be initialized synchronously before Electron emits ready.
+import * as NodeFS from "node:fs";
 import { createClerkBridge } from "@clerk/electron";
 import { storage } from "@clerk/electron/storage";
 import * as Context from "effect/Context";
@@ -7,11 +9,11 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 
+import { migrateLegacyT3Home } from "@t3tools/shared/legacyHomeMigration";
 import { clerkFrontendApiHostnameFromPublishableKey } from "@t3tools/shared/relayAuth";
 import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as ElectronProtocol from "../electron/ElectronProtocol.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
-import * as DesktopAppIdentity from "./DesktopAppIdentity.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 
 declare const __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: string | undefined;
@@ -73,8 +75,14 @@ export const desktopClerkFrontendApiHostname = resolveDesktopClerkFrontendApiHos
 );
 
 function createDesktopClerkBridge(stateDir: string, isDevelopment: boolean) {
+  let tokenStorage: ReturnType<typeof storage> | undefined;
+  const getTokenStorage = () => (tokenStorage ??= storage({ path: stateDir }));
   return createClerkBridge({
-    storage: storage({ path: stateDir }),
+    storage: {
+      getItem: (key) => getTokenStorage().getItem(key),
+      setItem: (key, value) => getTokenStorage().setItem(key, value),
+      removeItem: (key) => getTokenStorage().removeItem(key),
+    },
     passkeys: true,
     renderer: {
       scheme: ElectronProtocol.getDesktopScheme(isDevelopment),
@@ -94,7 +102,13 @@ export const make = Effect.gen(function* () {
   // directory here — under the default productName-derived path, acquiring
   // the lock would create "T3 Code (Alpha)" and make the legacy-install
   // detection in resolveUserDataPath match on fresh installs.
-  const userDataPath = yield* DesktopAppIdentity.resolveUserDataPath;
+  const legacyUserDataPath = environment.path.join(
+    environment.appDataDirectory,
+    environment.legacyUserDataDirName,
+  );
+  const userDataPath = NodeFS.existsSync(legacyUserDataPath)
+    ? legacyUserDataPath
+    : environment.path.join(environment.appDataDirectory, environment.userDataDirName);
   yield* electronApp.setPath("userData", userDataPath);
 
   const bridge = yield* Effect.acquireRelease(
@@ -118,6 +132,25 @@ export const make = Effect.gen(function* () {
           }),
       }).pipe(Effect.orDie),
   );
+
+  // Clerk registers its renderer scheme and acquires the single-instance lock
+  // synchronously above. Only then may first-launch import yield to filesystem
+  // work without letting Electron become ready too early.
+  if (
+    environment.isPackaged &&
+    !environment.isDevelopment &&
+    environment.baseDir === environment.path.join(environment.homeDirectory, ".oh-my-t3code")
+  ) {
+    const migration = yield* migrateLegacyT3Home({
+      sourceBaseDir: environment.path.join(environment.homeDirectory, ".t3"),
+      destinationBaseDir: environment.baseDir,
+    });
+    if (migration.status === "migrated") {
+      yield* Effect.logInfo("Imported existing T3 Code data into Oh My T3Code", {
+        entries: migration.entries,
+      });
+    }
+  }
 
   return DesktopClerk.of({
     configure: Effect.gen(function* () {

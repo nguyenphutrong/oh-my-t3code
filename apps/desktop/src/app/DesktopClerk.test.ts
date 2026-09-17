@@ -1,3 +1,4 @@
+import * as NodePath from "@effect/platform-node/NodePath";
 import { assert, describe, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -29,9 +30,12 @@ import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as DesktopClerk from "./DesktopClerk.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 
-const makeDesktopClerkLayer = (isDevelopment = true, events: string[] = []) => {
+const makeDesktopClerkLayer = (isDevelopment = true, events: string[] = [], isPackaged = false) => {
   const environment = DesktopEnvironment.DesktopEnvironment.of({
     stateDir: "/tmp/t3-state",
+    baseDir: "/tmp/home/.oh-my-t3code",
+    homeDirectory: "/tmp/home",
+    isPackaged,
     isDevelopment,
     appDataDirectory: "/tmp/app-data",
     userDataDirName: isDevelopment ? "oh-my-t3code-dev" : "oh-my-t3code",
@@ -51,7 +55,14 @@ const makeDesktopClerkLayer = (isDevelopment = true, events: string[] = []) => {
       Layer.mergeAll(
         Layer.succeed(DesktopEnvironment.DesktopEnvironment, environment),
         Layer.succeed(ElectronApp.ElectronApp, electronApp),
-        FileSystem.layerNoop({ exists: () => Effect.succeed(false) }),
+        NodePath.layerPosix,
+        FileSystem.layerNoop({
+          exists: (path) =>
+            Effect.sync(() => {
+              events.push(`exists:${path}`);
+              return false;
+            }),
+        }),
       ),
     ),
   );
@@ -75,15 +86,13 @@ describe("DesktopClerk", () => {
     return Effect.gen(function* () {
       yield* Effect.scoped(Layer.build(makeDesktopClerkLayer(true, events)));
 
-      assert.deepEqual(createClerkBridgeMock.mock.calls, [
-        [
-          {
-            storage: storageAdapter,
-            passkeys: true,
-            renderer: { scheme: "oh-my-t3code-dev", host: "app" },
-          },
-        ],
-      ]);
+      const options = createClerkBridgeMock.mock.calls[0]?.[0];
+      assert.equal(options.passkeys, true);
+      assert.deepEqual(options.renderer, { scheme: "oh-my-t3code-dev", host: "app" });
+      assert.equal(typeof options.storage.getItem, "function");
+      assert.equal(typeof options.storage.setItem, "function");
+      assert.equal(typeof options.storage.removeItem, "function");
+      assert.equal(storageMock.mock.calls.length, 0);
       assert.equal(cleanup.mock.calls.length, 1);
       // The bridge acquires Electron's single-instance lock at creation, and
       // the lock both lives in and creates the userData directory — so the
@@ -94,6 +103,26 @@ describe("DesktopClerk", () => {
       ]);
       storageMock.mockClear();
       createClerkBridgeMock.mockClear();
+    });
+  });
+
+  it.effect("creates the Clerk bridge before first-launch import can yield", () => {
+    const events: string[] = [];
+    storageMock.mockReturnValue(storageAdapter);
+    createClerkBridgeMock.mockImplementation(() => {
+      events.push("createClerkBridge");
+      return { cleanup: vi.fn(), isPrimaryInstance: true };
+    });
+
+    return Effect.gen(function* () {
+      yield* Effect.scoped(Layer.build(makeDesktopClerkLayer(false, events, true)));
+
+      assert.deepEqual(events, [
+        "setPath:userData:/tmp/app-data/oh-my-t3code",
+        "createClerkBridge",
+        "exists:/tmp/home/.oh-my-t3code/userdata",
+        "exists:/tmp/home/.t3/userdata",
+      ]);
     });
   });
 

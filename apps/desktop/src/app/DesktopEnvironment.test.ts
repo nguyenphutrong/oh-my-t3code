@@ -118,31 +118,6 @@ describe("DesktopEnvironment", () => {
     }),
   );
 
-  it.effect("imports legacy state before exposing the packaged default environment", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const fileSystem = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const homeDirectory = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "desktop-environment-migration-",
-        });
-        const sourceSettingsPath = path.join(homeDirectory, ".t3", "userdata", "settings.json");
-        yield* fileSystem.makeDirectory(path.dirname(sourceSettingsPath), { recursive: true });
-        yield* fileSystem.writeFileString(sourceSettingsPath, '{"provider":"codex"}\n');
-
-        const environment = yield* makeEnvironment({ homeDirectory, isPackaged: true });
-
-        assert.equal(environment.baseDir, path.join(homeDirectory, ".oh-my-t3code"));
-        assert.equal(
-          yield* fileSystem.readFileString(
-            path.join(homeDirectory, ".oh-my-t3code", "userdata", "settings.json"),
-          ),
-          '{"provider":"codex"}\n',
-        );
-      }),
-    ).pipe(Effect.provide(NodeServices.layer)),
-  );
-
   it.effect("uses the packaged Windows server sidecar as the backend root", () =>
     Effect.gen(function* () {
       const environment = yield* makeEnvironment({
