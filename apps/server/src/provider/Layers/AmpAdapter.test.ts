@@ -208,6 +208,48 @@ it.effect("does not duplicate the final Amp result when it was already streamed"
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
+it.effect("uses unique response item ids across turns when Amp omits message ids", () =>
+  Effect.gen(function* () {
+    const calls: AmpCliExecuteInput[] = [];
+    const execute: AmpCliExecute = (input) => {
+      calls.push(input);
+      return Stream.fromIterable(
+        successfulMessages("T-without-message-ids").map((message) =>
+          message.type === "assistant"
+            ? { ...message, message: { ...message.message, id: undefined } }
+            : message.type === "result"
+              ? { ...message, result: undefined }
+              : message,
+        ),
+      );
+    };
+    const adapter = yield* makeAmpAdapter({ binaryPath: "amp" }, adapterOptions(execute));
+    const threadId = ThreadId.make("amp-native-unique-response-ids");
+    const itemIds: string[] = [];
+    yield* adapter.streamEvents.pipe(
+      Stream.runForEach((event) =>
+        Effect.sync(() => {
+          if (
+            event.type === "content.delta" &&
+            event.payload.streamKind === "assistant_text" &&
+            event.itemId
+          )
+            itemIds.push(event.itemId);
+        }),
+      ),
+      Effect.forkChild,
+    );
+
+    yield* adapter.startSession({ threadId, cwd: process.cwd(), runtimeMode: "full-access" });
+    yield* adapter.sendTurn({ threadId, input: "First", attachments: [] });
+    yield* adapter.sendTurn({ threadId, input: "Second", attachments: [] });
+
+    expect(calls).toHaveLength(2);
+    expect(itemIds).toHaveLength(2);
+    expect(new Set(itemIds).size).toBe(2);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
 it.effect("continues only the Amp thread encoded in the resume cursor", () =>
   Effect.gen(function* () {
     const calls: AmpCliExecuteInput[] = [];

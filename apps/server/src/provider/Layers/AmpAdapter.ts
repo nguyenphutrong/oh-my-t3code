@@ -359,7 +359,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
         for (const [index, content] of message.message.content.entries()) {
           if (content.type === "text" || content.type === "thinking") {
             const itemId = RuntimeItemId.make(
-              `${message.message.id ?? message.session_id}:${content.type}:${index}`,
+              `${message.message.id ?? `${turnId}:assistant`}:${content.type}:${index}`,
             );
             const itemType = content.type === "text" ? "assistant_message" : "reasoning";
             yield* emit({
