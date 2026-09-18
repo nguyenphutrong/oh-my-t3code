@@ -47,6 +47,18 @@ terminal metadata while the terminal process can use them.
 
 ## Import your projects
 
+After setup, open the command menu (Cmd+K on macOS, Ctrl+K on Windows/Linux)
+and choose **Import sessions**, then paste a link such as
+`codex://threads/019f9271-04da-7151-b23e-523c535a0a16`. If you have multiple
+computers, select the one holding the Codex transcript. The link is not a cloud
+download: that computer must still have the session history and project folder.
+T3 Code checks the link automatically and previews the destination project.
+Review it, then choose **Import session** to confirm; checking a link does not
+create a project or import history.
+T3 Code imports only that session, including history older than 30 days, and
+reuses the matching project or creates one if needed. Direct links currently
+support Codex; the setup flow below also imports Claude Code history.
+
 T3 Code finds directories that Claude Code or Codex has used. Git repositories
 are listed first, newest activity on top. When the remote is on GitHub, the
 group shows the repository as `owner/name`. Clones with the same remote share

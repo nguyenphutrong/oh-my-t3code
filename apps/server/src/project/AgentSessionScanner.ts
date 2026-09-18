@@ -108,6 +108,7 @@ const TranscriptMessage = Schema.Struct({
 
 const CodexTurnMetadata = Schema.Struct({
   turn_id: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
+  content_item_kinds: Schema.optional(Schema.Array(Schema.String)),
 });
 
 const TranscriptRecord = Schema.Struct({
@@ -188,10 +189,13 @@ export class AgentSessionScanner extends Context.Service<
      * which ones to import and how far back to look. Fails with the contract
      * error directly — there is no server-local context worth wrapping.
      */
-    readonly scan: Effect.Effect<AgentSessionScanResult, AgentSessionScanError>;
+    readonly scan: (
+      codexSessionId?: string,
+    ) => Effect.Effect<AgentSessionScanResult, AgentSessionScanError>;
     readonly recentThreads: (
       workspaceRoot: string,
       completedSources?: ReadonlyArray<AgentSessionImportSource>,
+      codexSessionId?: string,
     ) => Stream.Stream<AgentSessionRecentThread, AgentSessionScanError>;
   }
 >()("t3/project/AgentSessionScanner") {}
@@ -281,6 +285,37 @@ function codexTurnId(metadata: unknown): string | null {
     return null;
   }
   return decoded.value.turn_id;
+}
+
+/** Codex stores harness context as user-role model input, not visible user prompts. */
+function isCodexContextMessage(payload: NonNullable<DecodedTranscriptRecord["payload"]>): boolean {
+  const content = payload.content;
+  if (!content?.length) return false;
+  const metadata = decodeCodexTurnMetadata(payload.internal_chat_message_metadata_passthrough);
+  const kinds = Option.isSome(metadata) ? metadata.value.content_item_kinds : undefined;
+  if (kinds !== undefined) {
+    return (
+      kinds.length === content.length &&
+      kinds.every(
+        (kind) =>
+          kind === "agents_md.instructions" ||
+          kind === "plugins.recommendations" ||
+          kind === "skills.selected_skill_instructions" ||
+          kind === "environments.environment_context" ||
+          kind.startsWith("additional_content."),
+      )
+    );
+  }
+  // Older rollouts lack classifications. Match whole context blocks only;
+  // quotes and prompts with text outside the block must remain visible.
+  return content.every((block) => {
+    if (block.type !== "input_text" || block.text === undefined) return false;
+    const text = block.text.trim();
+    return (
+      /^<(environment_context|recommended_plugins|skill)>[\s\S]*<\/\1>$/i.test(text) ||
+      /^# AGENTS\.md instructions[^\n]*\n\s*<INSTRUCTIONS>[\s\S]*<\/INSTRUCTIONS>$/i.test(text)
+    );
+  });
 }
 
 /** Keep visible user and assistant text while ignoring tools, reasoning, and malformed records. */
@@ -469,6 +504,9 @@ function parseAgentSessionRecords(
 
     const extractedText = extractText(record.payload.content);
     if (extractedText.length === 0) continue;
+    if (record.payload.role === "user" && isCodexContextMessage(record.payload)) {
+      continue;
+    }
     if (record.payload.role === "user" && canonicalCodexResponseUserIndices.has(recordIndex)) {
       continue;
     }
@@ -974,7 +1012,12 @@ export const make = Effect.gen(function* () {
   );
 
   const discoverCodexTranscripts = Effect.fn("AgentSessionScanner.discoverCodexTranscripts")(
-    function* (homePath: string, providerInstanceId: ProviderInstanceId, operationBudget: number) {
+    function* (
+      homePath: string,
+      providerInstanceId: ProviderInstanceId,
+      operationBudget: number,
+      codexSessionId?: string,
+    ) {
       const sessionsDir = path.join(homePath, "sessions");
 
       const transcripts: Array<TranscriptCandidate> = [];
@@ -1012,6 +1055,11 @@ export const make = Effect.gen(function* () {
             const directory = path.join(sessionsDir, year, month, day);
             for (const entry of (yield* readDirectory(directory)).toSorted().toReversed()) {
               if (!entry.startsWith("rollout-") || !entry.endsWith(".jsonl")) continue;
+              if (
+                codexSessionId !== undefined &&
+                !entry.toLowerCase().endsWith(`-${codexSessionId}.jsonl`)
+              )
+                continue;
               if (operationsRemaining <= 0) {
                 truncated = true;
                 break;
@@ -1082,7 +1130,9 @@ export const make = Effect.gen(function* () {
     }));
   });
 
-  const collectCandidates = Effect.fn("AgentSessionScanner.collectCandidates")(function* () {
+  const collectCandidates = Effect.fn("AgentSessionScanner.collectCandidates")(function* (
+    codexSessionId?: string,
+  ) {
     const settings = yield* serverSettings.getSettings.pipe(
       Effect.mapError((cause) => new AgentSessionScanError({ operation: "read-settings", cause })),
     );
@@ -1091,6 +1141,7 @@ export const make = Effect.gen(function* () {
     let truncated = false;
 
     for (const source of ["claudeAgent", "codex"] as const) {
+      if (codexSessionId !== undefined && source !== "codex") continue;
       const instances: Array<{
         readonly instanceId: ProviderInstanceId;
         readonly config: ProviderInstanceConfig;
@@ -1169,7 +1220,12 @@ export const make = Effect.gen(function* () {
         }
         const discovered = yield* source === "claudeAgent"
           ? discoverClaudeTranscripts(home.homePath, home.providerInstanceId, operationBudget)
-          : discoverCodexTranscripts(home.homePath, home.providerInstanceId, operationBudget);
+          : discoverCodexTranscripts(
+              home.homePath,
+              home.providerInstanceId,
+              operationBudget,
+              codexSessionId,
+            );
         truncated ||= discovered.truncated;
         transcriptCandidates.push(...discovered.transcripts);
       }
@@ -1198,9 +1254,9 @@ export const make = Effect.gen(function* () {
 
   let cachedCandidates: ReadonlyArray<RawCandidate> | null = null;
 
-  const scan: AgentSessionScanner["Service"]["scan"] = Effect.gen(function* () {
-    const { candidates: raw, truncated } = yield* collectCandidates();
-    cachedCandidates = raw;
+  const scan = Effect.fn("AgentSessionScanner.scan")(function* (codexSessionId?: string) {
+    const { candidates: raw, truncated } = yield* collectCandidates(codexSessionId);
+    if (codexSessionId === undefined) cachedCandidates = raw;
 
     // Filesystem identity merges symlinks and case aliases without collapsing
     // distinct case-sensitive directories.
@@ -1328,6 +1384,7 @@ export const make = Effect.gen(function* () {
   const prepareRecentThreads = Effect.fn("AgentSessionScanner.prepareRecentThreads")(function* (
     workspaceRoot: string,
     completedSources: ReadonlyArray<AgentSessionImportSource>,
+    codexSessionId?: string,
   ) {
     const root = path.resolve(expandHomePath(workspaceRoot));
     const realRoot = yield* fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => root));
@@ -1336,8 +1393,11 @@ export const make = Effect.gen(function* () {
     const nowMs = DateTime.toEpochMillis(yield* DateTime.now);
     const cutoffMs = nowMs - RECENT_THREAD_WINDOW_MS;
 
-    const candidates = cachedCandidates ?? (yield* collectCandidates()).candidates;
-    cachedCandidates = candidates;
+    const candidates =
+      codexSessionId === undefined
+        ? (cachedCandidates ?? (yield* collectCandidates()).candidates)
+        : (yield* collectCandidates(codexSessionId)).candidates;
+    if (codexSessionId === undefined) cachedCandidates = candidates;
 
     const eligibleTranscripts: Array<{
       readonly candidate: RawCandidate;
@@ -1352,7 +1412,7 @@ export const make = Effect.gen(function* () {
       for (const transcript of candidate.transcripts) {
         if (
           transcript.mtimeMs === null ||
-          transcript.mtimeMs < cutoffMs ||
+          (codexSessionId === undefined && transcript.mtimeMs < cutoffMs) ||
           transcript.mtimeMs > nowMs
         ) {
           continue;
@@ -1457,7 +1517,10 @@ export const make = Effect.gen(function* () {
             },
             snapshot.records,
           );
-          if (parsedThread === null) {
+          if (
+            parsedThread === null ||
+            (codexSessionId !== undefined && parsedThread.providerSessionId !== codexSessionId)
+          ) {
             return Option.some<AgentSessionRecentThread>({ _tag: "Skipped" });
           }
 
@@ -1487,7 +1550,8 @@ export const make = Effect.gen(function* () {
   const recentThreads: AgentSessionScanner["Service"]["recentThreads"] = (
     workspaceRoot,
     completedSources = [],
-  ) => Stream.unwrap(prepareRecentThreads(workspaceRoot, completedSources));
+    codexSessionId,
+  ) => Stream.unwrap(prepareRecentThreads(workspaceRoot, completedSources, codexSessionId));
 
   return AgentSessionScanner.of({ scan, recentThreads });
 });

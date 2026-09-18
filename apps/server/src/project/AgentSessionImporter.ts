@@ -131,6 +131,7 @@ export const importRecentAgentThreads = Effect.fn("importRecentAgentThreads")(fu
   const threads = scanner.recentThreads(
     workspaceRoot,
     completedSources.map((entry) => entry.source),
+    input.codexSessionId,
   );
   const importedThreadIds = new Set<ThreadId>();
   let importedCount = 0;
@@ -293,5 +294,10 @@ export const importRecentAgentThreads = Effect.fn("importRecentAgentThreads")(fu
     }),
   );
 
-  return { importedCount, skippedCount } satisfies AgentSessionImportResult;
+  const threadId = input.codexSessionId ? importedThreadIds.values().next().value : undefined;
+  return {
+    importedCount,
+    skippedCount,
+    ...(threadId === undefined ? {} : { threadId }),
+  } satisfies AgentSessionImportResult;
 });

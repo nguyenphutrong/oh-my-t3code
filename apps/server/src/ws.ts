@@ -3099,10 +3099,14 @@ const makeWsRpcLayer = (
             deletePendingAttachment(input.attachmentId),
             { "rpc.aggregate": "workspace" },
           ),
-        [WS_METHODS.agentSessionsScan]: () =>
-          observeRpcEffect(WS_METHODS.agentSessionsScan, agentSessionScanner.scan, {
-            "rpc.aggregate": "workspace",
-          }),
+        [WS_METHODS.agentSessionsScan]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.agentSessionsScan,
+            agentSessionScanner.scan(input.codexSessionId),
+            {
+              "rpc.aggregate": "workspace",
+            },
+          ),
         [WS_METHODS.agentSessionsImport]: (input) =>
           observeRpcEffect(
             WS_METHODS.agentSessionsImport,

@@ -104,7 +104,7 @@ const makeScannerTestLayer = (input: ScannerTestInput) =>
 const runScan = (input: ScannerTestInput) =>
   Effect.gen(function* () {
     const scanner = yield* AgentSessionScanner.AgentSessionScanner;
-    return yield* scanner.scan;
+    return yield* scanner.scan();
   }).pipe(Effect.provide(makeScannerTestLayer(input)));
 
 const runRecentThreadOutcomes = (input: ScannerTestInput & { readonly workspaceRoot: string }) =>
@@ -1373,6 +1373,121 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
   });
 
   describe("recentThreads", () => {
+    it.effect(
+      "imports only the linked Codex session, including old history, without poisoning the project scan cache",
+      () =>
+        Effect.gen(function* () {
+          const path = yield* Path.Path;
+          const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+          yield* TestClock.setTime(nowMs);
+          const claudeHomePath = yield* makeTempDir("t3code-link-claude-");
+          const codexHomePath = yield* makeTempDir("t3code-link-codex-");
+          const workspace = yield* makeTempDir("t3code-link-project-");
+          const otherWorkspace = yield* makeTempDir("t3code-link-other-");
+          const sessionId = "019f9271-04da-7151-b23e-523c535a0a16";
+          const peerId = "019f9271-04da-7151-b23e-523c535a0a17";
+          const otherId = "019f9271-04da-7151-b23e-523c535a0a18";
+          for (const [id, cwd, age] of [
+            [sessionId, workspace, 60],
+            [peerId, workspace, 1],
+            [otherId, otherWorkspace, 1],
+          ] as const) {
+            yield* writeTranscript({
+              filePath: path.join(
+                codexHomePath,
+                "sessions",
+                "2026",
+                "06",
+                "25",
+                `rollout-test-${id}.jsonl`,
+              ),
+              contents: [
+                encodeTranscriptRecord({ type: "session_meta", payload: { id, cwd } }),
+                encodeTranscriptRecord({
+                  type: "event_msg",
+                  payload: { type: "user_message", message: `Prompt ${id}` },
+                }),
+              ].join("\n"),
+              mtimeMs: nowMs - age * 24 * 60 * 60 * 1000,
+            });
+          }
+          yield* Effect.gen(function* () {
+            const scanner = yield* AgentSessionScanner.AgentSessionScanner;
+            expect((yield* scanner.scan()).candidates).toHaveLength(2);
+            const linked = yield* scanner.scan(sessionId);
+            expect(linked.candidates).toMatchObject([
+              { path: workspace, threadCount: 1, projectId: "project-1" },
+            ]);
+            const outcomes = yield* scanner
+              .recentThreads(workspace, [], sessionId)
+              .pipe(Stream.runCollect);
+            expect(outcomes).toHaveLength(1);
+            expect(outcomes[0]).toMatchObject({
+              _tag: "Importable",
+              thread: { providerSessionId: sessionId, messages: [{ text: `Prompt ${sessionId}` }] },
+            });
+            const recent = yield* scanner.recentThreads(workspace).pipe(Stream.runCollect);
+            expect(recent).toHaveLength(1);
+            expect(recent[0]).toMatchObject({
+              _tag: "Importable",
+              thread: { providerSessionId: peerId },
+            });
+            expect(
+              (yield* scanner.scan("019f9271-04da-7151-b23e-523c535a0a19")).candidates,
+            ).toEqual([]);
+            expect(
+              yield* scanner.recentThreads(otherWorkspace, [], sessionId).pipe(Stream.runCollect),
+            ).toEqual([]);
+          }).pipe(
+            Effect.provide(
+              makeScannerTestLayer({
+                claudeHomePath,
+                codexHomePath,
+                importedWorkspaceRoots: [workspace],
+              }),
+            ),
+          );
+        }),
+    );
+
+    it.effect("does not trust a linked session ID in the filename over transcript metadata", () =>
+      Effect.gen(function* () {
+        const path = yield* Path.Path;
+        const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+        yield* TestClock.setTime(nowMs);
+        const claudeHomePath = yield* makeTempDir("t3code-link-mismatch-claude-");
+        const codexHomePath = yield* makeTempDir("t3code-link-mismatch-codex-");
+        const workspace = yield* makeTempDir("t3code-link-mismatch-project-");
+        const sessionId = "019f9271-04da-7151-b23e-523c535a0a16";
+        yield* writeTranscript({
+          filePath: path.join(
+            codexHomePath,
+            "sessions",
+            "2026",
+            "08",
+            "24",
+            `rollout-test-${sessionId}.jsonl`,
+          ),
+          contents: [
+            encodeTranscriptRecord({
+              type: "session_meta",
+              payload: { id: "different-session", cwd: workspace },
+            }),
+            encodeTranscriptRecord({
+              type: "event_msg",
+              payload: { type: "user_message", message: "Wrong session" },
+            }),
+          ].join("\n"),
+          mtimeMs: nowMs,
+        });
+        const outcomes = yield* Effect.gen(function* () {
+          const scanner = yield* AgentSessionScanner.AgentSessionScanner;
+          return yield* scanner.recentThreads(workspace, [], sessionId).pipe(Stream.runCollect);
+        }).pipe(Effect.provide(makeScannerTestLayer({ claudeHomePath, codexHomePath })));
+        expect(outcomes).toEqual([{ _tag: "Skipped" }]);
+      }),
+    );
+
     it.effect.each([false, true])(
       "counts terminal newlines correctly with record overflow=%s",
       (overflow) =>
@@ -1726,7 +1841,7 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
         });
         const outcomes = yield* Effect.gen(function* () {
           const scanner = yield* AgentSessionScanner.AgentSessionScanner;
-          const scan = yield* scanner.scan;
+          const scan = yield* scanner.scan();
           expect(scan.candidates[0]?.threadCount).toBe(5);
           return yield* scanner.recentThreads(workspace).pipe(Stream.runCollect);
         }).pipe(
@@ -1852,7 +1967,7 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
 
               yield* Effect.gen(function* () {
                 const scanner = yield* AgentSessionScanner.AgentSessionScanner;
-                const scan = yield* scanner.scan;
+                const scan = yield* scanner.scan();
                 expect(scan.candidates.map((candidate) => candidate.path)).toEqual([workspace]);
                 const replacementCwd =
                   replacement === "symlink alias"
@@ -2591,7 +2706,7 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
         };
         const threads = yield* Effect.gen(function* () {
           const scanner = yield* AgentSessionScanner.AgentSessionScanner;
-          const scan = yield* scanner.scan;
+          const scan = yield* scanner.scan();
           expect(scan.truncated).toBe(true);
           return yield* scanner.recentThreads(recentWorkspace).pipe(Stream.runCollect);
         }).pipe(
@@ -3066,7 +3181,7 @@ describe("parseAgentSessionTranscript", () => {
     ]);
   });
 
-  it("preserves context markup in response-only Codex messages", () => {
+  it("filters standalone environment context in response-only Codex messages", () => {
     const context = "<environment_context>\n<cwd>/tmp/project</cwd>\n</environment_context>";
     const thread = AgentSessionScanner.parseAgentSessionTranscript({
       contents: [
@@ -3099,12 +3214,75 @@ describe("parseAgentSessionTranscript", () => {
       lastActiveAtMs: Date.parse("2026-08-25T08:00:00.000Z"),
     });
 
-    expect(thread?.title).toBe("<environment_context>");
+    expect(thread?.title).toBe("Initialize Git and add a README.");
     expect(thread?.messages.map((message) => message.text)).toEqual([
-      context,
       "Initialize Git and add a README.",
     ]);
   });
+
+  it.each([
+    ["<recommended_plugins>\nAvailable plugins\n</recommended_plugins>", undefined, false],
+    ["<skill>\nSelected skill instructions\n</skill>", undefined, false],
+    [
+      "# AGENTS.md instructions for /tmp/project\n\n<INSTRUCTIONS>Rules</INSTRUCTIONS>",
+      undefined,
+      false,
+    ],
+    ["Files mentioned by the user: screenshot.png", ["additional_content.files"], false],
+    ["Generated plugin list without markup", ["plugins.recommendations"], false],
+    ["<skill>quoted example</skill>", ["user.text"], true],
+    ["<skill>unclassified text</skill>", ["unknown"], true],
+    [
+      "<skill>misaligned metadata</skill>",
+      ["skills.selected_skill_instructions", "user.text"],
+      true,
+    ],
+    ["Please explain this: <skill>example</skill>", undefined, true],
+    ["<skill>example</skill>\nPlease explain this.", undefined, true],
+    ["<recommended_plugins>incomplete block", undefined, true],
+  ] as const)(
+    "classifies Codex response context without a turn ID: %s",
+    (text, kinds, retained) => {
+      const thread = AgentSessionScanner.parseAgentSessionTranscript({
+        contents: [
+          encodeTranscriptRecord({ type: "session_meta", payload: { id: "codex-session" } }),
+          encodeTranscriptRecord({
+            type: "response_item",
+            payload: {
+              type: "message",
+              role: "user",
+              ...(kinds === undefined
+                ? {}
+                : { internal_chat_message_metadata_passthrough: { content_item_kinds: kinds } }),
+              content: [{ type: "input_text", text }],
+            },
+          }),
+          encodeTranscriptRecord({
+            type: "event_msg",
+            payload: { type: "user_message", message: "Build the usage dashboard" },
+          }),
+          encodeTranscriptRecord({
+            type: "response_item",
+            payload: {
+              type: "message",
+              role: "assistant",
+              content: [{ type: "output_text", text: "Dashboard implemented" }],
+            },
+          }),
+        ].join("\n"),
+        source: "codex",
+        providerInstanceId: ProviderInstanceId.make("codex"),
+        fallbackSessionId: "fallback",
+        lastActiveAtMs: Date.parse("2026-08-25T08:00:00.000Z"),
+      });
+      expect(thread?.messages.map((message) => message.text)).toEqual([
+        ...(retained ? [text] : []),
+        "Build the usage dashboard",
+        "Dashboard implemented",
+      ]);
+      expect(thread?.title).toBe(retained ? text.split("\n")[0] : "Build the usage dashboard");
+    },
+  );
 
   it("preserves a canonical Codex event that starts with context markup", () => {
     const prompt =

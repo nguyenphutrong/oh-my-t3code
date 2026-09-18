@@ -68,6 +68,7 @@ import {
 } from "react";
 import { useAtomValue } from "@effect/atom-react";
 
+import { ImportSessionsDialog } from "./ImportSessionsDialog";
 import { isDesktopLocalConnectionTarget } from "../connection/desktopLocal";
 import { useDesktopLocalBootstraps } from "../connection/useDesktopLocalBootstraps";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
@@ -439,6 +440,7 @@ function overlayModeForCommand(command: string | null): SearchOverlayMode | null
 }
 
 export function CommandPalette({ children }: { children: ReactNode }) {
+  const [importSessionsOpen, setImportSessionsOpen] = useState(false);
   const [state, dispatch] = useReducer(reduceCommandPaletteUiState, {
     open: false,
     mode: "command",
@@ -561,8 +563,12 @@ export function CommandPalette({ children }: { children: ReactNode }) {
           setOpen={setOpen}
           openOverlayMode={toggleMode}
           clearOpenIntent={clearOpenIntent}
+          onImportSessions={() => setImportSessionsOpen(true)}
         />
       </CommandDialog>
+      {importSessionsOpen ? (
+        <ImportSessionsDialog onClose={() => setImportSessionsOpen(false)} />
+      ) : null}
     </ComposerHandleContext>
   );
 }
@@ -573,6 +579,7 @@ function CommandPaletteDialog(props: {
   readonly setOpen: (open: boolean) => void;
   readonly openOverlayMode: (mode: SearchOverlayMode) => void;
   readonly clearOpenIntent: () => void;
+  readonly onImportSessions: () => void;
 }) {
   const composerHandleRef = useComposerHandleContext();
 
@@ -607,6 +614,7 @@ function CommandPaletteDialog(props: {
           setOpen={props.setOpen}
           openOverlayMode={props.openOverlayMode}
           clearOpenIntent={props.clearOpenIntent}
+          onImportSessions={props.onImportSessions}
         />
       )}
     </CommandDialogPopup>
@@ -618,6 +626,7 @@ function OpenCommandPaletteDialog(props: {
   readonly setOpen: (open: boolean) => void;
   readonly openOverlayMode: (mode: SearchOverlayMode) => void;
   readonly clearOpenIntent: () => void;
+  readonly onImportSessions: () => void;
 }) {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
@@ -1816,6 +1825,17 @@ function OpenCommandPaletteDialog(props: {
         themeHalves,
         initialAppearance: resolvedTheme,
       });
+    },
+  });
+
+  actionItems.push({
+    kind: "action",
+    value: "action:import-sessions",
+    searchTerms: ["import", "sessions", "history", "codex", "claude", "conversations"],
+    title: "Import sessions",
+    icon: <MessageSquareIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      props.onImportSessions();
     },
   });
 

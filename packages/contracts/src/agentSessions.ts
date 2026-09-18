@@ -1,5 +1,11 @@
 import * as Schema from "effect/Schema";
-import { IsoDateTime, NonNegativeInt, ProjectId, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import {
+  IsoDateTime,
+  NonNegativeInt,
+  ProjectId,
+  ThreadId,
+  TrimmedNonEmptyString,
+} from "./baseSchemas.ts";
 import { ProviderInstanceId } from "./providerInstance.ts";
 
 /** Coding agent home directories the scanner knows how to read. */
@@ -25,11 +31,22 @@ export function isImportedAgentSessionMessageId(messageId: string): boolean {
   return messageId.startsWith("import:");
 }
 
-/**
- * Empty for now. Kept as a struct so future scan options (source filters,
- * explicit roots) can be added without a new method.
- */
-export const AgentSessionScanInput = Schema.Struct({});
+export const CodexSessionId = Schema.String.check(
+  Schema.isPattern(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
+);
+
+/** A Codex link identifies local history, not a remotely downloadable transcript. */
+export function parseCodexSessionLink(value: string): string | null {
+  const match =
+    /^codex:\/\/threads\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
+      value.trim(),
+    );
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+export const AgentSessionScanInput = Schema.Struct({
+  codexSessionId: Schema.optional(CodexSessionId),
+});
 export type AgentSessionScanInput = typeof AgentSessionScanInput.Type;
 
 /**
@@ -76,6 +93,7 @@ export type AgentSessionScanResult = typeof AgentSessionScanResult.Type;
 export const AgentSessionImportInput = Schema.Struct({
   projectId: ProjectId,
   expectedWorkspaceRoot: Schema.optional(TrimmedNonEmptyString),
+  codexSessionId: Schema.optional(CodexSessionId),
 });
 export type AgentSessionImportInput = typeof AgentSessionImportInput.Type;
 
@@ -100,6 +118,8 @@ export class AgentSessionImportProjectChangedError extends Schema.TaggedError<Ag
 export const AgentSessionImportResult = Schema.Struct({
   importedCount: NonNegativeInt,
   skippedCount: NonNegativeInt,
+  /** The imported thread for a single-session request, including an already imported session. */
+  threadId: Schema.optional(ThreadId),
 });
 export type AgentSessionImportResult = typeof AgentSessionImportResult.Type;
 
