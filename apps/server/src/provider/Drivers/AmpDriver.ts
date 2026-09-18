@@ -13,7 +13,11 @@ import { ServerSettingsService } from "../../serverSettings.ts";
 import { makeAmpTextGeneration } from "../../textGeneration/AmpTextGeneration.ts";
 import { ProviderDriverError } from "../Errors.ts";
 import { makeAmpAdapter } from "../Layers/AmpAdapter.ts";
-import { checkAmpProviderStatus, makeInitialAmpProvider } from "../Layers/AmpProvider.ts";
+import {
+  checkAmpProviderStatus,
+  discoverAmpSkills,
+  makeInitialAmpProvider,
+} from "../Layers/AmpProvider.ts";
 import { makeManagedServerProvider } from "../makeManagedServerProvider.ts";
 import {
   defaultProviderContinuationIdentity,
@@ -103,6 +107,26 @@ export const AmpDriver: ProviderDriver<AmpSettings, AmpDriverEnv> = {
             }),
         ),
       );
+      const snapshotForCwd = (cwd: string) =>
+        !settings.enabled
+          ? snapshot.getSnapshot
+          : Effect.all([
+              snapshot.getSnapshot,
+              discoverAmpSkills(settings, processEnvironment, cwd).pipe(
+                Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+              ),
+            ]).pipe(
+              Effect.map(([machineSnapshot, skills]) => ({ ...machineSnapshot, skills })),
+              Effect.mapError(
+                (cause) =>
+                  new ProviderDriverError({
+                    driver: DRIVER_KIND,
+                    instanceId,
+                    detail: `Failed to discover Amp skills for '${cwd}'`,
+                    cause,
+                  }),
+              ),
+            );
 
       return {
         instanceId,
@@ -112,6 +136,7 @@ export const AmpDriver: ProviderDriver<AmpSettings, AmpDriverEnv> = {
         accentColor,
         enabled,
         snapshot,
+        snapshotForCwd,
         adapter,
         textGeneration,
       } satisfies ProviderInstance;

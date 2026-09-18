@@ -5,6 +5,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 import { ChildProcess } from "effect/unstable/process";
 
 import {
@@ -19,6 +20,23 @@ import {
 
 const VERSION_TIMEOUT_MS = 4_000;
 const AMP_API_KEY_ENV = "AMP_API_KEY";
+
+const AmpSkillList = Schema.Struct({
+  skills: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      description: Schema.optional(Schema.String),
+      baseDir: Schema.String,
+      source: Schema.optional(Schema.String),
+    }),
+  ),
+});
+const decodeAmpSkillList = Schema.decodeEffect(Schema.fromJsonString(AmpSkillList));
+
+class AmpSkillsProbeError extends Schema.TaggedError<AmpSkillsProbeError>()("AmpSkillsProbeError", {
+  stage: Schema.Literals(["spawn", "timeout", "exit", "decode"]),
+  cause: Schema.optional(Schema.Defect()),
+}) {}
 
 const presentation = {
   displayName: "Amp",
@@ -98,6 +116,52 @@ const runVersion = (settings: AmpSettings, environment: NodeJS.ProcessEnv) =>
       }),
     );
   });
+
+export const discoverAmpSkills = Effect.fn("discoverAmpSkills")(function* (
+  settings: AmpSettings,
+  environment: NodeJS.ProcessEnv,
+  cwd: string,
+) {
+  const command = settings.binaryPath || "amp";
+  const args = ["skills", "list", "--json"];
+  if (settings.settingsFile) args.push("--settings-file", settings.settingsFile);
+  const outputResult = yield* Effect.gen(function* () {
+    const spawn = yield* resolveSpawnCommand(command, args, { env: environment });
+    return yield* spawnAndCollect(
+      command,
+      ChildProcess.make(spawn.command, spawn.args, {
+        cwd,
+        env: environment,
+        shell: spawn.shell,
+      }),
+    );
+  }).pipe(
+    Effect.mapError((cause) => new AmpSkillsProbeError({ stage: "spawn", cause })),
+    Effect.timeoutOption("4 seconds"),
+  );
+  if (Option.isNone(outputResult)) return yield* new AmpSkillsProbeError({ stage: "timeout" });
+  const output = outputResult.value;
+  if (output.code !== 0) return yield* new AmpSkillsProbeError({ stage: "exit" });
+  const result = yield* decodeAmpSkillList(output.stdout).pipe(
+    Effect.mapError((cause) => new AmpSkillsProbeError({ stage: "decode", cause })),
+  );
+  return result.skills.flatMap((skill) => {
+    const name = skill.name.trim();
+    const baseDir = skill.baseDir.trim().replace(/\/$/u, "");
+    if (!name || !baseDir) return [];
+    const description = skill.description?.trim();
+    const scope = skill.source?.trim();
+    return [
+      {
+        name,
+        path: `${baseDir}/SKILL.md`,
+        enabled: true,
+        ...(description ? { description } : {}),
+        ...(scope ? { scope } : {}),
+      },
+    ];
+  });
+});
 
 export const checkAmpProviderStatus = Effect.fn("checkAmpProviderStatus")(function* (
   settings: AmpSettings,
