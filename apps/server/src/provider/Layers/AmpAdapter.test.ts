@@ -113,7 +113,10 @@ it.effect("runs a native Amp turn and maps text, tools, usage, and the resume cu
       modelSelection: {
         instanceId,
         model: "high",
-        options: [{ id: "reasoningEffort", value: "xhigh" }],
+        options: [
+          { id: "reasoningEffort", value: "xhigh" },
+          { id: "fastMode", value: true },
+        ],
       },
     });
     const result = yield* adapter.sendTurn({
@@ -128,6 +131,7 @@ it.effect("runs a native Amp turn and maps text, tools, usage, and the resume cu
       cwd: process.cwd(),
       mode: "high",
       effort: "xhigh",
+      fastMode: true,
       dangerouslyAllowAll: true,
     });
     expect(calls[0]?.continueThreadId).toBeUndefined();

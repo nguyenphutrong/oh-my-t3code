@@ -31,6 +31,11 @@ describe("AmpDriver", () => {
           expect.objectContaining({ id: "max" }),
         ]),
       },
+      {
+        id: "fastMode",
+        type: "boolean",
+        currentValue: false,
+      },
     ]);
   });
 });

@@ -12,7 +12,10 @@ import {
   TurnId,
   type CanonicalItemType,
 } from "@t3tools/contracts";
-import { getProviderOptionStringSelectionValue } from "@t3tools/shared/model";
+import {
+  getProviderOptionBooleanSelectionValue,
+  getProviderOptionStringSelectionValue,
+} from "@t3tools/shared/model";
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -62,6 +65,7 @@ interface SessionContext {
   session: ProviderSession;
   ampThreadId: string | undefined;
   effort: string | undefined;
+  fastMode: boolean;
   activeTurnId: TurnId | undefined;
   abortController: AbortController | undefined;
   stopped: boolean;
@@ -262,6 +266,8 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
         input.modelSelection?.options,
         "reasoningEffort",
       );
+      const requestedFastMode =
+        getProviderOptionBooleanSelectionValue(input.modelSelection?.options, "fastMode") ?? false;
       if (requestedEffort && !VALID_EFFORTS.has(requestedEffort))
         return yield* new ProviderAdapterValidationError({
           provider: DRIVER_KIND,
@@ -288,6 +294,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
         session,
         ampThreadId: savedThreadId,
         effort: requestedEffort,
+        fastMode: requestedFastMode,
         activeTurnId: undefined,
         abortController: undefined,
         stopped: false,
@@ -622,6 +629,9 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
               issue: `Unsupported Amp reasoning effort: ${effort}.`,
             });
           context.effort = effort;
+          context.fastMode =
+            getProviderOptionBooleanSelectionValue(input.modelSelection?.options, "fastMode") ??
+            context.fastMode;
           const turnId = TurnId.make(yield* crypto.randomUUIDv4);
           const abortController = new AbortController();
           context.activeTurnId = turnId;
@@ -656,6 +666,7 @@ export const makeAmpAdapter = Effect.fn("makeAmpAdapter")(function* (
               },
               mode,
               ...(effort ? { effort } : {}),
+              ...(context.fastMode ? { fastMode: true } : {}),
               ...(context.ampThreadId ? { continueThreadId: context.ampThreadId } : {}),
               ...(config.settingsFile?.trim()
                 ? { settingsFile: expandHomePath(config.settingsFile.trim()) }

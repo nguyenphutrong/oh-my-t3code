@@ -8,6 +8,7 @@ import * as Result from "effect/Result";
 import { ChildProcess } from "effect/unstable/process";
 
 import {
+  buildBooleanOptionDescriptor,
   buildSelectOptionDescriptor,
   buildServerProvider,
   isCommandMissingCause,
@@ -40,8 +41,15 @@ const reasoningEffort = buildSelectOptionDescriptor({
   ],
 });
 
+const fastMode = buildBooleanOptionDescriptor({
+  id: "fastMode",
+  label: "Fast",
+  currentValue: false,
+  description: "Uses faster serving for supported Amp modes at a premium.",
+});
+
 const capabilities: ModelCapabilities = createModelCapabilities({
-  optionDescriptors: [reasoningEffort],
+  optionDescriptors: [reasoningEffort, fastMode],
 });
 
 export const AMP_MODELS: ReadonlyArray<ServerProviderModel> = [

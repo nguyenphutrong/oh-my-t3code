@@ -165,6 +165,7 @@ export interface AmpCliExecuteInput {
   readonly message: AmpCliUserMessage;
   readonly mode: string;
   readonly effort?: string | undefined;
+  readonly fastMode?: boolean | undefined;
   readonly continueThreadId?: string | undefined;
   readonly settingsFile?: string | undefined;
   readonly dangerouslyAllowAll?: boolean | undefined;
@@ -212,6 +213,7 @@ function cliArgs(input: AmpCliExecuteInput, settingsFile: string | undefined): s
   const args = input.continueThreadId ? ["threads", "continue", input.continueThreadId] : [];
   args.push("--execute", "--stream-json-thinking", "--stream-json-input");
   args.push("--plugin-ready-timeout", "10");
+  if (input.fastMode) args.push("--fast");
   if (input.dangerouslyAllowAll) args.push("--dangerously-allow-all");
   args.push("--no-archive-after-execute", "--visibility", "private");
   if (settingsFile) args.push("--settings-file", settingsFile);

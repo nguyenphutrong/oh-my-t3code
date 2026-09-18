@@ -126,6 +126,7 @@ it.effect("spawns Amp with explicit continuation args and streams typed JSONL", 
     const messages = yield* execute(
       executeInput({
         continueThreadId: "T-existing",
+        fastMode: true,
         dangerouslyAllowAll: true,
       }),
     ).pipe(Stream.runCollect);
@@ -140,6 +141,7 @@ it.effect("spawns Amp with explicit continuation args and streams typed JSONL", 
       "--stream-json-input",
       "--plugin-ready-timeout",
       "10",
+      "--fast",
       "--dangerously-allow-all",
       "--no-archive-after-execute",
       "--visibility",
