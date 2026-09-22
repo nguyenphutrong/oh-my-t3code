@@ -1,7 +1,14 @@
 import { projectSpaceForKeys } from "@t3tools/client-runtime/state/project-grouping";
 import type { ProjectSpace } from "@t3tools/contracts";
-import { Layers3Icon, LayoutGridIcon, MoreHorizontalIcon, PlusIcon, XIcon } from "lucide-react";
-import type { DragEvent } from "react";
+import {
+  CheckIcon,
+  Layers3Icon,
+  LayoutGridIcon,
+  MoreHorizontalIcon,
+  PlusIcon,
+  XIcon,
+} from "lucide-react";
+import { useState, type DragEvent } from "react";
 
 import { cn } from "../../lib/utils";
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
@@ -21,10 +28,11 @@ export function SidebarSpaces(props: {
   onExpandedChange: (expanded: boolean) => void;
   onSelect: (spaceId: string | null) => void;
   onAssign: (project: SidebarProjectSnapshot, spaceId: string | null) => void;
-  onCreate: () => void;
-  onRename: (space: ProjectSpace) => void;
+  onCreate: (name: string) => void;
+  onRename: (space: ProjectSpace, name: string) => void;
   onDelete: (space: ProjectSpace) => void;
 }) {
+  const [editor, setEditor] = useState<{ space: ProjectSpace | null; name: string } | null>(null);
   const selectSpace = (spaceId: string | null) => {
     props.onSelect(spaceId);
     if (props.expanded) props.onExpandedChange(false);
@@ -82,7 +90,7 @@ export function SidebarSpaces(props: {
                     <MoreHorizontalIcon className="size-3.5" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    <DropdownMenuItem onClick={() => props.onRename(space)}>
+                    <DropdownMenuItem onClick={() => setEditor({ space, name: space.name })}>
                       Rename
                     </DropdownMenuItem>
                     <DropdownMenuItem variant="destructive" onClick={() => props.onDelete(space)}>
@@ -99,7 +107,7 @@ export function SidebarSpaces(props: {
           type="button"
           aria-label="Create space"
           className="flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-sidebar-muted-foreground outline-none transition-transform duration-150 ease-out hover:bg-sidebar-row-hover hover:text-sidebar-foreground active:scale-95 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={props.onCreate}
+          onClick={() => setEditor({ space: null, name: "" })}
         >
           <PlusIcon className="size-3.5" />
           {props.spaces.length === 0 ? "Space" : null}
@@ -117,6 +125,48 @@ export function SidebarSpaces(props: {
           <LayoutGridIcon className="size-3.5" />
         </button>
       </nav>
+
+      {editor ? (
+        <form
+          className="mx-3 mb-2 flex shrink-0 items-center gap-1 rounded-lg border border-sidebar-border bg-sidebar-row-hover/50 p-1"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const name = editor.name.trim();
+            if (!name) return;
+            if (editor.space) props.onRename(editor.space, name);
+            else props.onCreate(name);
+            setEditor(null);
+          }}
+        >
+          <input
+            autoFocus
+            aria-label={editor.space ? "Rename space" : "Space name"}
+            className="h-7 min-w-0 flex-1 rounded-md bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            placeholder="Space name"
+            value={editor.name}
+            onChange={(event) => setEditor({ ...editor, name: event.target.value })}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setEditor(null);
+            }}
+          />
+          <button
+            type="submit"
+            aria-label={editor.space ? "Save space name" : "Create space"}
+            className="flex size-7 items-center justify-center rounded-md text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground disabled:opacity-40"
+            disabled={!editor.name.trim()}
+          >
+            <CheckIcon className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            aria-label="Cancel editing space"
+            className="flex size-7 items-center justify-center rounded-md text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+            onClick={() => setEditor(null)}
+          >
+            <XIcon className="size-3.5" />
+          </button>
+        </form>
+      ) : null}
 
       {props.expanded ? (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2">
@@ -183,7 +233,7 @@ export function SidebarSpaces(props: {
                           <MoreHorizontalIcon className="size-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => props.onRename(space)}>
+                          <DropdownMenuItem onClick={() => setEditor({ space, name: space.name })}>
                             Rename
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -248,7 +298,7 @@ export function SidebarSpaces(props: {
             <button
               type="button"
               className="flex h-full min-h-72 w-48 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-sidebar-border text-sm text-sidebar-muted-foreground transition-[transform,border-color,color] duration-200 hover:-translate-y-0.5 hover:border-sidebar-foreground/30 hover:text-sidebar-foreground motion-reduce:transition-none"
-              onClick={props.onCreate}
+              onClick={() => setEditor({ space: null, name: "" })}
             >
               <PlusIcon className="size-5" />
               New Space

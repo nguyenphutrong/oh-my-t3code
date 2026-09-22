@@ -2501,21 +2501,21 @@ export default function Sidebar(props: {
     clearSelection();
   }, [clearSelection, projectScopeKey]);
 
-  const createSpace = useCallback(() => {
-    const name = window.prompt("Name this Space")?.trim();
-    if (!name) return;
-    const id = randomUUID();
-    clearSelection();
-    void updateClientSettings({
-      projectSpaces: [...projectSpaces, { id, name, projectKeys: [] }],
-    });
-    setProjectScopeKey(null);
-    setActiveSpaceId(id);
-  }, [clearSelection, projectSpaces, setActiveSpaceId, setProjectScopeKey, updateClientSettings]);
+  const createSpace = useCallback(
+    (name: string) => {
+      const id = randomUUID();
+      clearSelection();
+      void updateClientSettings({
+        projectSpaces: [...projectSpaces, { id, name, projectKeys: [] }],
+      });
+      setProjectScopeKey(null);
+      setActiveSpaceId(id);
+    },
+    [clearSelection, projectSpaces, setActiveSpaceId, setProjectScopeKey, updateClientSettings],
+  );
   const renameSpace = useCallback(
-    (space: ProjectSpace) => {
-      const name = window.prompt("Rename Space", space.name)?.trim();
-      if (!name || name === space.name) return;
+    (space: ProjectSpace, name: string) => {
+      if (name === space.name) return;
       void updateClientSettings({
         projectSpaces: projectSpaces.map((entry) =>
           entry.id === space.id ? { ...entry, name } : entry,
