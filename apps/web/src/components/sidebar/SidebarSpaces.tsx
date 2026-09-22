@@ -10,7 +10,9 @@ import {
 } from "lucide-react";
 import { useState, type DragEvent } from "react";
 
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { cn } from "../../lib/utils";
+import { usePanelPresence } from "../../panelAnimations";
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
 import { ProjectFavicon } from "../ProjectFavicon";
 import {
@@ -33,6 +35,15 @@ export function SidebarSpaces(props: {
   onDelete: (space: ProjectSpace) => void;
 }) {
   const [editor, setEditor] = useState<{ space: ProjectSpace | null; name: string } | null>(null);
+  const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const editorPresence = usePanelPresence(
+    editor !== null,
+    editor,
+    !prefersReducedMotion,
+    "space-editor",
+    200,
+  );
+  const renderedEditor = editorPresence.value;
   const selectSpace = (spaceId: string | null) => {
     props.onSelect(spaceId);
     if (props.expanded) props.onExpandedChange(false);
@@ -126,46 +137,71 @@ export function SidebarSpaces(props: {
         </button>
       </nav>
 
-      {editor ? (
-        <form
-          className="mx-3 mb-2 flex shrink-0 items-center gap-1 rounded-lg border border-sidebar-border bg-sidebar-row-hover/50 p-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const name = editor.name.trim();
-            if (!name) return;
-            if (editor.space) props.onRename(editor.space, name);
-            else props.onCreate(name);
-            setEditor(null);
-          }}
+      {editorPresence.present && renderedEditor ? (
+        <div
+          className={cn(
+            "grid shrink-0 overflow-hidden",
+            editor
+              ? "translate-y-0 grid-rows-[1fr] opacity-100"
+              : "-translate-y-1 grid-rows-[0fr] opacity-0",
+            "transition-[grid-template-rows,opacity,transform] duration-200 ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:transition-none",
+            editor &&
+              "starting:-translate-y-1 starting:grid-rows-[0fr] starting:opacity-0 motion-reduce:starting:translate-y-0 motion-reduce:starting:grid-rows-[1fr] motion-reduce:starting:opacity-100",
+          )}
         >
-          <input
-            autoFocus
-            aria-label={editor.space ? "Rename space" : "Space name"}
-            className="h-7 min-w-0 flex-1 rounded-md bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            placeholder="Space name"
-            value={editor.name}
-            onChange={(event) => setEditor({ ...editor, name: event.target.value })}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") setEditor(null);
-            }}
-          />
-          <button
-            type="submit"
-            aria-label={editor.space ? "Save space name" : "Create space"}
-            className="flex size-7 items-center justify-center rounded-md text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground disabled:opacity-40"
-            disabled={!editor.name.trim()}
+          <div
+            className="min-h-0 overflow-hidden"
+            aria-hidden={editor === null}
+            inert={editor === null}
           >
-            <CheckIcon className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            aria-label="Cancel editing space"
-            className="flex size-7 items-center justify-center rounded-md text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
-            onClick={() => setEditor(null)}
-          >
-            <XIcon className="size-3.5" />
-          </button>
-        </form>
+            <form
+              className="mx-3 mb-2 flex items-center gap-1 rounded-xl bg-sidebar-row-active p-1 shadow-sm ring-1 ring-sidebar-border/70"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const name = renderedEditor.name.trim();
+                if (!name) return;
+                if (renderedEditor.space) props.onRename(renderedEditor.space, name);
+                else props.onCreate(name);
+                setEditor(null);
+              }}
+            >
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-background/70 text-xs font-semibold text-sidebar-muted-foreground">
+                {renderedEditor.space ? (
+                  Array.from(renderedEditor.space.name)[0]
+                ) : (
+                  <PlusIcon className="size-3.5" />
+                )}
+              </span>
+              <input
+                autoFocus
+                aria-label={renderedEditor.space ? "Rename space" : "Space name"}
+                className="h-8 min-w-0 flex-1 bg-transparent px-1.5 text-sm outline-none placeholder:text-sidebar-muted-foreground/60"
+                placeholder="Space name…"
+                value={renderedEditor.name}
+                onChange={(event) => setEditor({ ...renderedEditor, name: event.target.value })}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setEditor(null);
+                }}
+              />
+              <button
+                type="submit"
+                aria-label={renderedEditor.space ? "Save space name" : "Create space"}
+                className="flex size-7 items-center justify-center rounded-lg bg-sidebar-foreground text-sidebar disabled:opacity-30"
+                disabled={!renderedEditor.name.trim()}
+              >
+                <CheckIcon className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Cancel editing space"
+                className="flex size-7 items-center justify-center rounded-lg text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+                onClick={() => setEditor(null)}
+              >
+                <XIcon className="size-3.5" />
+              </button>
+            </form>
+          </div>
+        </div>
       ) : null}
 
       {props.expanded ? (
