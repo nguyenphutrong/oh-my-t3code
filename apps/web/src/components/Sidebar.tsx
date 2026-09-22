@@ -23,6 +23,7 @@ import {
 } from "@t3tools/client-runtime/state/thread-settled";
 import { resolveSettledThreadTimestamp } from "@t3tools/client-runtime/state/thread-sort";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
+import { assignProjectKeysToSpace } from "@t3tools/client-runtime/state/project-grouping";
 import {
   parseScopedThreadKey,
   scopeProjectRef,
@@ -2541,6 +2542,18 @@ export default function Sidebar() {
     },
     [clearSelection, setActiveSpaceId, setProjectScopeKey],
   );
+  const assignProjectToSpace = useCallback(
+    (project: SidebarProjectSnapshot, spaceId: string | null) => {
+      void updateClientSettings({
+        projectSpaces: assignProjectKeysToSpace(
+          projectSpaces,
+          spaceId,
+          project.memberProjects.map((member) => member.physicalProjectKey),
+        ),
+      });
+    },
+    [projectSpaces, updateClientSettings],
+  );
 
   const openProjectSettings = useCallback(
     (projectGroup: SidebarProjectSnapshot) => {
@@ -4452,8 +4465,10 @@ export default function Sidebar() {
       <SidebarChromeHeader isElectron={isElectron} />
       <SidebarSpaces
         spaces={projectSpaces}
+        projects={allProjectGroups}
         activeSpaceId={activeSpaceId}
         onSelect={selectSpace}
+        onAssign={assignProjectToSpace}
         onCreate={createSpace}
         onRename={renameSpace}
         onDelete={deleteSpace}
