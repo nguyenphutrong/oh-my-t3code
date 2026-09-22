@@ -1,19 +1,11 @@
 import { projectSpaceForKeys } from "@t3tools/client-runtime/state/project-grouping";
 import type { ProjectSpace } from "@t3tools/contracts";
-import { Layers3Icon, LayoutGridIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
-import { useState, type DragEvent } from "react";
+import { Layers3Icon, LayoutGridIcon, MoreHorizontalIcon, PlusIcon, XIcon } from "lucide-react";
+import type { DragEvent } from "react";
 
 import { cn } from "../../lib/utils";
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
 import { ProjectFavicon } from "../ProjectFavicon";
-import {
-  Dialog,
-  DialogDescription,
-  DialogHeader,
-  DialogPanel,
-  DialogPopup,
-  DialogTitle,
-} from "../ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,13 +17,18 @@ export function SidebarSpaces(props: {
   spaces: ReadonlyArray<ProjectSpace>;
   projects: ReadonlyArray<SidebarProjectSnapshot>;
   activeSpaceId: string | null;
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
   onSelect: (spaceId: string | null) => void;
   onAssign: (project: SidebarProjectSnapshot, spaceId: string | null) => void;
   onCreate: () => void;
   onRename: (space: ProjectSpace) => void;
   onDelete: (space: ProjectSpace) => void;
 }) {
-  const [overviewOpen, setOverviewOpen] = useState(false);
+  const selectSpace = (spaceId: string | null) => {
+    props.onSelect(spaceId);
+    if (props.expanded) props.onExpandedChange(false);
+  };
 
   return (
     <>
@@ -47,7 +44,7 @@ export function SidebarSpaces(props: {
             "flex size-7 shrink-0 items-center justify-center rounded-md text-sidebar-muted-foreground outline-none transition-[background-color,color,transform] duration-150 ease-out hover:bg-sidebar-row-hover hover:text-sidebar-foreground active:scale-95 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring",
             props.activeSpaceId === null && "bg-sidebar-row-active text-sidebar-foreground",
           )}
-          onClick={() => props.onSelect(null)}
+          onClick={() => selectSpace(null)}
         >
           <Layers3Icon className="size-4" />
         </button>
@@ -69,7 +66,7 @@ export function SidebarSpaces(props: {
                   "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-sidebar-muted-foreground outline-none transition-[color,transform] duration-150 ease-out hover:bg-sidebar-row-hover hover:text-sidebar-foreground active:scale-[0.97] motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring",
                   active && "text-sidebar-foreground",
                 )}
-                onClick={() => props.onSelect(space.id)}
+                onClick={() => selectSpace(space.id)}
               >
                 <span aria-hidden className="flex size-4 items-center justify-center uppercase">
                   {Array.from(space.name)[0]}
@@ -110,25 +107,36 @@ export function SidebarSpaces(props: {
         <button
           type="button"
           aria-label="Manage spaces"
-          className="flex size-7 shrink-0 items-center justify-center rounded-md text-sidebar-muted-foreground outline-none transition-transform duration-150 ease-out hover:bg-sidebar-row-hover hover:text-sidebar-foreground active:scale-95 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={() => setOverviewOpen(true)}
+          aria-expanded={props.expanded}
+          className={cn(
+            "flex size-7 shrink-0 items-center justify-center rounded-md text-sidebar-muted-foreground outline-none transition-[background-color,color,transform] duration-150 ease-out hover:bg-sidebar-row-hover hover:text-sidebar-foreground active:scale-95 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring",
+            props.expanded && "bg-sidebar-row-active text-sidebar-foreground",
+          )}
+          onClick={() => props.onExpandedChange(!props.expanded)}
         >
           <LayoutGridIcon className="size-3.5" />
         </button>
       </nav>
 
-      <Dialog open={overviewOpen} onOpenChange={setOverviewOpen}>
-        <DialogPopup
-          bottomStickOnMobile={false}
-          className="w-[min(64rem,calc(100vw-2rem))] max-w-none"
-        >
-          <DialogHeader>
-            <DialogTitle>Spaces</DialogTitle>
-            <DialogDescription>
-              Organize projects into focused workspaces. Drag a project or use its selector.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogPanel className="flex gap-4 overflow-x-auto pb-6">
+      {props.expanded ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2">
+          <header className="flex shrink-0 items-start justify-between gap-4 px-1 pb-4">
+            <div>
+              <h2 className="font-heading text-lg font-semibold">Spaces</h2>
+              <p className="text-sm text-sidebar-muted-foreground">
+                Organize projects into focused workspaces. Drag a project or use its selector.
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Close spaces"
+              className="flex size-8 shrink-0 items-center justify-center rounded-md text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => props.onExpandedChange(false)}
+            >
+              <XIcon className="size-4" />
+            </button>
+          </header>
+          <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2">
             {[null, ...props.spaces].map((space) => {
               const spaceId = space?.id ?? null;
               const projects = props.projects.filter((project) => {
@@ -142,7 +150,7 @@ export function SidebarSpaces(props: {
                 <section
                   key={spaceId ?? "unassigned"}
                   className={cn(
-                    "flex h-[28rem] w-64 shrink-0 flex-col rounded-2xl border bg-muted/40 p-3 shadow-sm transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(.2,.8,.2,1)] hover:-translate-y-0.5 hover:shadow-md motion-reduce:transition-none",
+                    "flex h-full min-h-72 w-1/4 min-w-48 max-w-64 shrink-0 flex-col rounded-2xl border border-sidebar-border bg-sidebar-row-hover/50 p-3 shadow-sm transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(.2,.8,.2,1)] hover:-translate-y-0.5 hover:shadow-md motion-reduce:transition-none",
                     spaceId !== null &&
                       spaceId === props.activeSpaceId &&
                       "border-primary/40 bg-primary/5",
@@ -161,8 +169,7 @@ export function SidebarSpaces(props: {
                       type="button"
                       className="min-w-0 flex-1 truncate text-left font-heading font-semibold"
                       onClick={() => {
-                        props.onSelect(spaceId);
-                        setOverviewOpen(false);
+                        selectSpace(spaceId);
                       }}
                     >
                       {space?.name ?? "Unassigned"}
@@ -200,19 +207,21 @@ export function SidebarSpaces(props: {
                         <div
                           key={project.projectKey}
                           draggable
-                          className="flex cursor-grab items-center gap-2 rounded-xl bg-background/80 p-2 shadow-xs transition-[transform,opacity] duration-150 ease-out active:scale-[0.98] active:cursor-grabbing motion-reduce:transition-none"
+                          className="flex cursor-grab flex-col gap-2 rounded-xl bg-background/80 p-2 shadow-xs transition-[transform,opacity] duration-150 ease-out active:scale-[0.98] active:cursor-grabbing motion-reduce:transition-none"
                           onDragStart={(event: DragEvent<HTMLDivElement>) => {
                             event.dataTransfer.effectAllowed = "move";
                             event.dataTransfer.setData("text/plain", project.projectKey);
                           }}
                         >
-                          <ProjectFavicon project={project} className="size-4 shrink-0" />
-                          <span className="min-w-0 flex-1 truncate text-sm">
-                            {project.displayName}
-                          </span>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <ProjectFavicon project={project} className="size-4 shrink-0" />
+                            <span className="min-w-0 flex-1 truncate text-sm">
+                              {project.displayName}
+                            </span>
+                          </div>
                           <select
                             aria-label={`Move ${project.displayName}`}
-                            className="max-w-24 rounded-md border bg-background px-1 py-0.5 text-xs text-muted-foreground"
+                            className="w-full rounded-md border bg-background px-1 py-0.5 text-xs text-muted-foreground"
                             value={spaceId ?? "unassigned"}
                             onChange={(event) =>
                               props.onAssign(
@@ -238,15 +247,15 @@ export function SidebarSpaces(props: {
 
             <button
               type="button"
-              className="flex h-[28rem] w-48 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed text-sm text-muted-foreground transition-[transform,border-color,color] duration-200 hover:-translate-y-0.5 hover:border-foreground/30 hover:text-foreground motion-reduce:transition-none"
+              className="flex h-full min-h-72 w-48 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-sidebar-border text-sm text-sidebar-muted-foreground transition-[transform,border-color,color] duration-200 hover:-translate-y-0.5 hover:border-sidebar-foreground/30 hover:text-sidebar-foreground motion-reduce:transition-none"
               onClick={props.onCreate}
             >
               <PlusIcon className="size-5" />
               New Space
             </button>
-          </DialogPanel>
-        </DialogPopup>
-      </Dialog>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

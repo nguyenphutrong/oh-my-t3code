@@ -2133,7 +2133,10 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
   );
 });
 
-export default function Sidebar() {
+export default function Sidebar(props: {
+  spacesOverviewOpen: boolean;
+  onSpacesOverviewOpenChange: (open: boolean) => void;
+}) {
   const projects = useProjects();
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const activeSpaceId = useUiStateStore((store) => store.sidebarSpaceId);
@@ -4467,6 +4470,8 @@ export default function Sidebar() {
         spaces={projectSpaces}
         projects={allProjectGroups}
         activeSpaceId={activeSpaceId}
+        expanded={props.spacesOverviewOpen}
+        onExpandedChange={props.onSpacesOverviewOpenChange}
         onSelect={selectSpace}
         onAssign={assignProjectToSpace}
         onCreate={createSpace}

@@ -154,11 +154,14 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const isOnSettings = pathname === "/settings" || pathname.startsWith("/settings/");
   const isMacosDesktop = isElectron && isMacPlatform(navigator.platform);
   const [sidebarWidth, setSidebarWidth] = useState(readInitialThreadSidebarWidth);
+  const [spacesOverviewOpen, setSpacesOverviewOpen] = useState(false);
   // Subscribed rather than read once: the clamp must track live window size,
   // and a clamped drag ends with an unchanged width, which skips the re-render
   // that would otherwise refresh a render-time snapshot.
   const viewportWidth = useSyncExternalStore(subscribeToViewportWidth, readViewportWidth);
   const sidebarMaximumWidth = resolveThreadSidebarMaximumWidth(viewportWidth);
+  const spacesOverviewVisible = spacesOverviewOpen && !isOnSettings && !legacySidebarEnabled;
+  const expandedSidebarWidth = spacesOverviewVisible ? sidebarMaximumWidth : sidebarWidth;
   const resetSidebarWidth = () => {
     try {
       removeLocalStorageItem(THREAD_SIDEBAR_WIDTH_STORAGE_KEY);
@@ -174,7 +177,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
       : false;
   });
   const sidebarProviderStyle = {
-    "--sidebar-width": `${sidebarWidth}px`,
+    "--sidebar-width": `${expandedSidebarWidth}px`,
     "--panel-animation-duration": `${panelAnimationDurationMs}ms`,
     ...(isMacosDesktop && !isWindowFullscreen
       ? { "--workspace-controls-left": MACOS_TRAFFIC_LIGHTS_LEFT_INSET }
@@ -231,7 +234,8 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           side="left"
           collapsible="offcanvas"
           data-app-sidebar=""
-          className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+          data-spaces-overview={spacesOverviewVisible}
+          className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground [&[data-spaces-overview=true]_[data-slot=sidebar-content]]:hidden [&[data-spaces-overview=true]_[data-slot=sidebar-footer]]:hidden"
           resizable={{
             maxWidth: sidebarMaximumWidth,
             minWidth: THREAD_SIDEBAR_MIN_WIDTH,
@@ -250,9 +254,12 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           ) : legacySidebarEnabled ? (
             <LegacyThreadSidebar />
           ) : (
-            <ThreadSidebar />
+            <ThreadSidebar
+              spacesOverviewOpen={spacesOverviewVisible}
+              onSpacesOverviewOpenChange={setSpacesOverviewOpen}
+            />
           )}
-          <SidebarRail onDoubleClick={resetSidebarWidth} />
+          {spacesOverviewVisible ? null : <SidebarRail onDoubleClick={resetSidebarWidth} />}
         </Sidebar>
         {children}
         <SidebarControl />
