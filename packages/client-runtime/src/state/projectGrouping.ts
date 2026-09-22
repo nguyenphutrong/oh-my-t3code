@@ -1,6 +1,7 @@
 import { scopedProjectKey, scopeProjectRef } from "../environment/scoped.ts";
 import type {
   EnvironmentId,
+  ProjectSpace,
   ScopedProjectRef,
   SidebarProjectGroupingMode,
 } from "@t3tools/contracts";
@@ -84,6 +85,39 @@ export function getProjectOrderKey(
   project: Pick<EnvironmentProject, "environmentId" | "workspaceRoot">,
 ): string {
   return derivePhysicalProjectKey(project);
+}
+
+export function projectSpaceForKeys(
+  spaces: ReadonlyArray<ProjectSpace>,
+  projectKeys: ReadonlyArray<string>,
+): ProjectSpace | null {
+  const keys = new Set(projectKeys);
+  return spaces.find((space) => space.projectKeys.some((key) => keys.has(key))) ?? null;
+}
+
+export function assignProjectKeysToSpace(
+  spaces: ReadonlyArray<ProjectSpace>,
+  spaceId: string | null,
+  projectKeys: ReadonlyArray<string>,
+): ProjectSpace[] {
+  const moved = new Set(projectKeys);
+  return spaces.map((space) => ({
+    ...space,
+    projectKeys: [
+      ...space.projectKeys.filter((key) => !moved.has(key)),
+      ...(space.id === spaceId
+        ? projectKeys.filter((key) => !space.projectKeys.includes(key))
+        : []),
+    ],
+  }));
+}
+
+export function projectKeysInSpace(
+  spaces: ReadonlyArray<ProjectSpace>,
+  spaceId: string | null,
+): ReadonlySet<string> | null {
+  if (spaceId === null) return null;
+  return new Set(spaces.find((space) => space.id === spaceId)?.projectKeys ?? []);
 }
 
 export function resolveProjectGroupingMode(

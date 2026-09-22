@@ -4,12 +4,44 @@ import { describe, expect, it } from "vite-plus/test";
 import type { EnvironmentProject } from "./models.ts";
 import { chooseLoadBalancedEnvironment } from "../load-balancing.ts";
 import {
+  assignProjectKeysToSpace,
   buildProjectGroups,
   derivePhysicalProjectKey,
+  projectKeysInSpace,
+  projectSpaceForKeys,
   type ProjectGroupingSettings,
 } from "./projectGrouping.ts";
 
 const environmentId = EnvironmentId.make("environment");
+
+describe("project spaces", () => {
+  const spaces = [
+    { id: "work", name: "Work", projectKeys: ["project-a", "project-b"] },
+    { id: "personal", name: "Personal", projectKeys: ["project-c"] },
+  ];
+
+  it("moves a logical project's physical keys exclusively between spaces", () => {
+    const moved = assignProjectKeysToSpace(spaces, "personal", ["project-a", "project-b"]);
+
+    expect(moved).toEqual([
+      { id: "work", name: "Work", projectKeys: [] },
+      {
+        id: "personal",
+        name: "Personal",
+        projectKeys: ["project-c", "project-a", "project-b"],
+      },
+    ]);
+    expect(projectSpaceForKeys(moved, ["project-a", "project-b"])?.id).toBe("personal");
+    expect(projectKeysInSpace(moved, "personal")).toEqual(
+      new Set(["project-c", "project-a", "project-b"]),
+    );
+  });
+
+  it("returns projects to the unassigned pool", () => {
+    const unassigned = assignProjectKeysToSpace(spaces, null, ["project-a"]);
+    expect(projectSpaceForKeys(unassigned, ["project-a"])).toBeNull();
+  });
+});
 
 describe("load balancing shared project machines", () => {
   const now = 100_000;

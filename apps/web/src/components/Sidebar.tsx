@@ -33,6 +33,7 @@ import {
   resolveEnvironmentMachineKind,
   type EnvironmentMachineKind,
   type ProjectIconOverride,
+  type ProjectSpace,
   type ScopedThreadRef,
   type ThreadId,
 } from "@t3tools/contracts";
@@ -96,7 +97,7 @@ import { useTerminalFocus } from "../hooks/useTerminalFocus";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import { isModelPickerOpen } from "../modelPickerVisibility";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
-import { isMacPlatform } from "~/lib/utils";
+import { isMacPlatform, randomUUID } from "~/lib/utils";
 import { useOpenPrLink } from "../lib/openPullRequestLink";
 import { releaseComposerDraftUploads } from "../lib/composerDraftUploads";
 import { readLocalApi } from "../localApi";
@@ -104,7 +105,11 @@ import {
   isSameSidebarThreadRef,
   useSidebarPendingFileDropStore,
 } from "../sidebarPendingFileDropStore";
-import { getProjectOrderKey, selectProjectGroupingSettings } from "../logicalProject";
+import {
+  getProjectOrderKey,
+  projectKeysInSpace,
+  selectProjectGroupingSettings,
+} from "../logicalProject";
 import {
   buildSidebarProjectSnapshots,
   projectGroupsSpanEnvironments,
@@ -119,7 +124,7 @@ import { useThreadActions } from "../hooks/useThreadActions";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
-import { useClientSettings } from "../hooks/useSettings";
+import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useNowMinute } from "../hooks/useNowMinute";
@@ -233,6 +238,7 @@ import {
 } from "./ui/combobox";
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
+import { SidebarSpaces } from "./sidebar/SidebarSpaces";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { Popover, PopoverPopup, PopoverTrigger } from "./ui/popover";
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
@@ -2129,6 +2135,8 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
 export default function Sidebar() {
   const projects = useProjects();
   const projectOrder = useUiStateStore((store) => store.projectOrder);
+  const activeSpaceId = useUiStateStore((store) => store.sidebarSpaceId);
+  const setActiveSpaceId = useUiStateStore((store) => store.setSidebarSpaceId);
   const threads = useThreadShells();
   const router = useRouter();
   const { isMobile, setOpenMobile } = useSidebar();
@@ -2136,6 +2144,8 @@ export default function Sidebar() {
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
   const sidebarProjectSortOrder = useClientSettings((s) => s.sidebarProjectSortOrder);
+  const projectSpaces = useClientSettings((s) => s.projectSpaces);
+  const updateClientSettings = useUpdateClientSettings();
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const {
@@ -2298,10 +2308,30 @@ export default function Sidebar() {
       sidebarProjectSortOrder,
     ],
   );
-  const projectGroups = useMemo(
+  const allProjectGroups = useMemo(
     () => sortLogicalProjectsForSidebar(unsortedProjectGroups, threads, sidebarProjectSortOrder),
     [sidebarProjectSortOrder, threads, unsortedProjectGroups],
   );
+  const activeSpaceProjectKeys = useMemo(
+    () => projectKeysInSpace(projectSpaces, activeSpaceId),
+    [activeSpaceId, projectSpaces],
+  );
+  const projectGroups = useMemo(
+    () =>
+      activeSpaceProjectKeys === null
+        ? allProjectGroups
+        : allProjectGroups.filter((group) =>
+            group.memberProjects.some((project) =>
+              activeSpaceProjectKeys.has(project.physicalProjectKey),
+            ),
+          ),
+    [activeSpaceProjectKeys, allProjectGroups],
+  );
+  useEffect(() => {
+    if (activeSpaceId !== null && !projectSpaces.some((space) => space.id === activeSpaceId)) {
+      setActiveSpaceId(null);
+    }
+  }, [activeSpaceId, projectSpaces, setActiveSpaceId]);
   const projectGroupsRef = useRef(projectGroups);
   projectGroupsRef.current = projectGroups;
   const serverConfigs = useAtomValue(environmentServerConfigsAtom);
@@ -2326,13 +2356,13 @@ export default function Sidebar() {
   const projectDisplayNameByKey = useMemo(
     () =>
       new Map(
-        projectGroups.flatMap((group) =>
+        allProjectGroups.flatMap((group) =>
           group.memberProjects.map(
             (project) => [`${project.environmentId}:${project.id}`, group.displayName] as const,
           ),
         ),
       ),
-    [projectGroups],
+    [allProjectGroups],
   );
 
   const nowMinute = useNowMinute();
@@ -2409,14 +2439,22 @@ export default function Sidebar() {
   );
   const scopedProjectKeys = useMemo(
     () =>
-      scopedProjectGroup === null
-        ? null
-        : new Set(
+      scopedProjectGroup !== null
+        ? new Set(
             scopedProjectGroup.memberProjectRefs.map(
               (projectRef) => `${projectRef.environmentId}:${projectRef.projectId}`,
             ),
-          ),
-    [scopedProjectGroup],
+          )
+        : activeSpaceProjectKeys === null
+          ? null
+          : new Set(
+              projectGroups.flatMap((group) =>
+                group.memberProjectRefs.map(
+                  (projectRef) => `${projectRef.environmentId}:${projectRef.projectId}`,
+                ),
+              ),
+            ),
+    [activeSpaceProjectKeys, projectGroups, scopedProjectGroup],
   );
   // A persisted scope whose project is gone falls back to all projects, but
   // only after every catalog environment has a live project snapshot. Cached
@@ -2458,6 +2496,51 @@ export default function Sidebar() {
   useEffect(() => {
     clearSelection();
   }, [clearSelection, projectScopeKey]);
+
+  const createSpace = useCallback(() => {
+    const name = window.prompt("Name this Space")?.trim();
+    if (!name) return;
+    const id = randomUUID();
+    clearSelection();
+    void updateClientSettings({
+      projectSpaces: [...projectSpaces, { id, name, projectKeys: [] }],
+    });
+    setProjectScopeKey(null);
+    setActiveSpaceId(id);
+  }, [clearSelection, projectSpaces, setActiveSpaceId, setProjectScopeKey, updateClientSettings]);
+  const renameSpace = useCallback(
+    (space: ProjectSpace) => {
+      const name = window.prompt("Rename Space", space.name)?.trim();
+      if (!name || name === space.name) return;
+      void updateClientSettings({
+        projectSpaces: projectSpaces.map((entry) =>
+          entry.id === space.id ? { ...entry, name } : entry,
+        ),
+      });
+    },
+    [projectSpaces, updateClientSettings],
+  );
+  const deleteSpace = useCallback(
+    (space: ProjectSpace) => {
+      if (!window.confirm(`Delete “${space.name}”? Projects will return to All Spaces.`)) return;
+      void updateClientSettings({
+        projectSpaces: projectSpaces.filter((entry) => entry.id !== space.id),
+      });
+      if (activeSpaceId === space.id) {
+        clearSelection();
+        setActiveSpaceId(null);
+      }
+    },
+    [activeSpaceId, clearSelection, projectSpaces, setActiveSpaceId, updateClientSettings],
+  );
+  const selectSpace = useCallback(
+    (spaceId: string | null) => {
+      clearSelection();
+      setProjectScopeKey(null);
+      setActiveSpaceId(spaceId);
+    },
+    [clearSelection, setActiveSpaceId, setProjectScopeKey],
+  );
 
   const openProjectSettings = useCallback(
     (projectGroup: SidebarProjectSnapshot) => {
@@ -4367,6 +4450,14 @@ export default function Sidebar() {
   return (
     <>
       <SidebarChromeHeader isElectron={isElectron} />
+      <SidebarSpaces
+        spaces={projectSpaces}
+        activeSpaceId={activeSpaceId}
+        onSelect={selectSpace}
+        onCreate={createSpace}
+        onRename={renameSpace}
+        onDelete={deleteSpace}
+      />
       <SidebarContent
         className="gap-0 min-h-full"
         fixedHeader={

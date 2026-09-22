@@ -6,6 +6,7 @@ export {
   derivePhysicalProjectKeyFromPath,
   deriveProjectGroupingOverrideKey,
   getProjectOrderKey,
+  projectKeysInSpace,
   resolveProjectGroupingMode,
   selectProjectGroupingSettings,
   type ProjectGroupingMode,

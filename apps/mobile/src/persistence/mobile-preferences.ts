@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import type { SidebarProjectGroupingMode } from "@t3tools/contracts";
+import type { ProjectSpace, SidebarProjectGroupingMode } from "@t3tools/contracts";
 import type { ComposerEnterBehavior } from "../lib/composerEnterBehavior";
 import { MOBILE_THEME_IDS, type MobileThemeId, type MobileThemeMode } from "../lib/mobileTheme";
 
@@ -30,6 +30,7 @@ export interface Preferences {
   readonly codeWordBreak?: boolean;
   readonly connectOnboardingOptOutAccounts?: ReadonlyArray<string>;
   readonly collapsedProjectGroups?: readonly string[];
+  readonly projectSpaces?: ReadonlyArray<ProjectSpace>;
   /** What the Return key does in the composer on a hardware keyboard. iOS only. */
   readonly composerEnterBehavior?: ComposerEnterBehavior;
   /** @deprecated Kept temporarily so older OTA bundles retain the selected mode. */
@@ -102,6 +103,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     codeWordBreak?: boolean;
     connectOnboardingOptOutAccounts?: ReadonlyArray<string>;
     collapsedProjectGroups?: readonly string[];
+    projectSpaces?: ReadonlyArray<ProjectSpace>;
     composerEnterBehavior?: ComposerEnterBehavior;
     projectGroupingEnabled?: boolean;
     projectGroupingMode?: SidebarProjectGroupingMode;
@@ -162,6 +164,30 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     preferences.collapsedProjectGroups = parsed.collapsedProjectGroups.filter(
       (key): key is string => typeof key === "string",
     );
+  }
+  if (Array.isArray(parsed.projectSpaces)) {
+    preferences.projectSpaces = parsed.projectSpaces.flatMap((space) => {
+      if (
+        !space ||
+        typeof space !== "object" ||
+        typeof space.id !== "string" ||
+        !space.id.trim() ||
+        typeof space.name !== "string" ||
+        !space.name.trim() ||
+        !Array.isArray(space.projectKeys)
+      ) {
+        return [];
+      }
+      return [
+        {
+          id: space.id.trim(),
+          name: space.name.trim(),
+          projectKeys: space.projectKeys.filter(
+            (key: unknown): key is string => typeof key === "string" && key.length > 0,
+          ),
+        },
+      ];
+    });
   }
   if (parsed.composerEnterBehavior === "send" || parsed.composerEnterBehavior === "newline") {
     preferences.composerEnterBehavior = parsed.composerEnterBehavior;

@@ -1,5 +1,11 @@
 import * as Arr from "effect/Array";
 import * as Order from "effect/Order";
+import { AsyncResult } from "effect/unstable/reactivity";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import {
+  derivePhysicalProjectKey,
+  projectKeysInSpace,
+} from "@t3tools/client-runtime/state/project-grouping";
 import { useNavigation } from "@react-navigation/native";
 import { useEffect, useMemo, useState } from "react";
 import { Platform, useWindowDimensions } from "react-native";
@@ -9,6 +15,7 @@ import { useProjects, useThreadShells } from "../../state/entities";
 import { usePendingNewTasks } from "../../state/use-pending-new-tasks";
 import { useWorkspaceState } from "../../state/workspace";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
+import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { WorkspaceEmptyDetail } from "../layout/WorkspaceEmptyDetail";
 import { WorkspaceSidebarToolbar } from "../layout/workspace-sidebar-toolbar";
@@ -16,6 +23,7 @@ import { checkForAppUpdateOnLaunch, startAppUpdateForegroundRecheck } from "../u
 import { AndroidHomeFabLayout } from "./AndroidHomeFab";
 import { HomeScreen } from "./HomeScreen";
 import { HomeHeader } from "./HomeHeader";
+import { HomeSpaces } from "./HomeSpaces";
 import { useHomeListOptions } from "./home-list-options";
 import { useHomeThreadSelection } from "./home-thread-navigation";
 import { buildHomeProjectScopes } from "./homeThreadList";
@@ -34,7 +42,13 @@ export function HomeRouteScreen() {
   const { savedConnectionsById } = useSavedRemoteConnections();
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeSpaceId, setActiveSpaceId] = useState<string | null>(null);
   const handleSelectThread = useHomeThreadSelection();
+  const preferencesResult = useAtomValue(mobilePreferencesAtom);
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const projectSpaces = AsyncResult.isSuccess(preferencesResult)
+    ? (preferencesResult.value.projectSpaces ?? [])
+    : [];
 
   useEffect(() => {
     void checkForAppUpdateOnLaunch();
@@ -84,17 +98,64 @@ export function HomeRouteScreen() {
   } = useHomeListOptions(availableEnvironmentIds);
   const selectedEnvironmentId = listOptions.selectedEnvironmentId;
   const [selectedProjectKey, setSelectedProjectKey] = useState<string | null>(null);
-  const projectFilterOptions = useMemo(
+  const allProjectScopes = useMemo(
     () =>
       buildHomeProjectScopes({
         projects,
+        environmentId: selectedEnvironmentId,
+        projectGroupingMode: listOptions.projectGroupingMode,
+      }),
+    [listOptions.projectGroupingMode, projects, selectedEnvironmentId],
+  );
+  const effectiveActiveSpaceId = projectSpaces.some((space) => space.id === activeSpaceId)
+    ? activeSpaceId
+    : null;
+  const activeSpaceProjectKeys = useMemo(
+    () => projectKeysInSpace(projectSpaces, effectiveActiveSpaceId),
+    [effectiveActiveSpaceId, projectSpaces],
+  );
+  const visibleProjects = useMemo(
+    () =>
+      activeSpaceProjectKeys === null
+        ? projects
+        : projects.filter((project) =>
+            activeSpaceProjectKeys.has(derivePhysicalProjectKey(project)),
+          ),
+    [activeSpaceProjectKeys, projects],
+  );
+  const visibleProjectRefs = useMemo(
+    () => new Set(visibleProjects.map((project) => `${project.environmentId}:${project.id}`)),
+    [visibleProjects],
+  );
+  const visibleThreads = useMemo(
+    () =>
+      activeSpaceProjectKeys === null
+        ? threads
+        : threads.filter((thread) =>
+            visibleProjectRefs.has(`${thread.environmentId}:${thread.projectId}`),
+          ),
+    [activeSpaceProjectKeys, threads, visibleProjectRefs],
+  );
+  const visiblePendingTasks = useMemo(
+    () =>
+      activeSpaceProjectKeys === null
+        ? pendingTasks
+        : pendingTasks.filter((task) =>
+            visibleProjectRefs.has(`${task.environmentId}:${task.projectId}`),
+          ),
+    [activeSpaceProjectKeys, pendingTasks, visibleProjectRefs],
+  );
+  const projectFilterOptions = useMemo(
+    () =>
+      buildHomeProjectScopes({
+        projects: visibleProjects,
         environmentId: selectedEnvironmentId,
         projectGroupingMode: listOptions.projectGroupingMode,
       }).map((scope) => ({
         key: scope.key,
         label: scope.title,
       })),
-    [listOptions.projectGroupingMode, projects, selectedEnvironmentId],
+    [listOptions.projectGroupingMode, selectedEnvironmentId, visibleProjects],
   );
   useEffect(() => {
     if (
@@ -183,6 +244,17 @@ export function HomeRouteScreen() {
           onThreadSortOrderChange={setThreadSortOrder}
         />
 
+        <HomeSpaces
+          spaces={projectSpaces}
+          scopes={allProjectScopes}
+          activeSpaceId={effectiveActiveSpaceId}
+          onSelect={(spaceId) => {
+            setSelectedProjectKey(null);
+            setActiveSpaceId(spaceId);
+          }}
+          onChange={(spaces) => savePreferences({ projectSpaces: spaces })}
+        />
+
         <HomeScreen
           catalogState={catalogState}
           environments={environments}
@@ -239,15 +311,15 @@ export function HomeRouteScreen() {
           }}
           onStartNewTask={() => navigation.navigate("NewTaskSheet", { screen: "NewTask" })}
           onThreadSortOrderChange={setThreadSortOrder}
-          pendingTasks={pendingTasks}
+          pendingTasks={visiblePendingTasks}
           projectGroupingMode={listOptions.projectGroupingMode}
-          projects={projects}
+          projects={visibleProjects}
           projectSortOrder={listOptions.projectSortOrder}
           savedConnectionsById={savedConnectionsById}
           searchQuery={searchQuery}
           selectedEnvironmentId={selectedEnvironmentId}
           selectedProjectKey={selectedProjectKey}
-          threads={threads}
+          threads={visibleThreads}
           threadSortOrder={listOptions.threadSortOrder}
         />
       </>

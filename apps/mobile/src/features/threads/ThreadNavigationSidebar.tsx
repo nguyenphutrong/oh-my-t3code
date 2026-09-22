@@ -5,13 +5,18 @@ import type {
   EnvironmentThreadShell,
 } from "@t3tools/client-runtime/state/shell";
 import {
+  derivePhysicalProjectKey,
+  projectKeysInSpace,
+} from "@t3tools/client-runtime/state/project-grouping";
+import {
   threadSearchMatchKey,
   type EnvironmentThreadSearchMatch,
 } from "@t3tools/client-runtime/state/thread-search";
 import { LegendList } from "@legendapp/list/react-native";
 import type { MenuAction } from "@react-native-menu/menu";
-import { useAtomValue } from "@effect/atom-react";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { type EnvironmentId, resolveEnvironmentMachineKind } from "@t3tools/contracts";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LayoutChangeEvent } from "react-native";
 import { Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
@@ -28,6 +33,7 @@ import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
 import { useProjects, useThreadShells } from "../../state/entities";
+import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { useThreadSearch } from "../../state/queries";
 import { useThreadListV2Enabled } from "./use-thread-list-v2-enabled";
 import { useThreadListV2ShelfPreferences } from "./use-thread-list-v2-shelf-preferences";
@@ -57,6 +63,7 @@ import {
   type HomeListItem,
 } from "../home/homeListItems";
 import { buildHomeProjectScopes, buildHomeThreadGroups } from "../home/homeThreadList";
+import { HomeSpaces } from "../home/HomeSpaces";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "../home/thread-swipe-actions";
 import { usePendingTaskListActions } from "../home/usePendingTaskListActions";
 import { useThreadListActions } from "../home/useThreadListActions";
@@ -155,6 +162,12 @@ function ThreadNavigationSidebarPane(
   const insets = useSafeAreaInsets();
   const projects = useProjects();
   const threads = useThreadShells();
+  const [activeSpaceId, setActiveSpaceId] = useState<string | null>(null);
+  const preferencesResult = useAtomValue(mobilePreferencesAtom);
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const projectSpaces = AsyncResult.isSuccess(preferencesResult)
+    ? (preferencesResult.value.projectSpaces ?? [])
+    : [];
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
   const searchInputRef = useRef<TextInput>(null);
@@ -224,7 +237,7 @@ function ThreadNavigationSidebarPane(
     [threadSearch.matches],
   );
   const [selectedProjectKey, setSelectedProjectKey] = useState<string | null>(null);
-  const projectScopes = useMemo(
+  const allProjectScopes = useMemo(
     () =>
       buildHomeProjectScopes({
         projects,
@@ -232,6 +245,31 @@ function ThreadNavigationSidebarPane(
         projectGroupingMode: options.projectGroupingMode,
       }),
     [options.projectGroupingMode, options.selectedEnvironmentId, projects],
+  );
+  const effectiveActiveSpaceId = projectSpaces.some((space) => space.id === activeSpaceId)
+    ? activeSpaceId
+    : null;
+  const activeSpaceProjectKeys = useMemo(
+    () => projectKeysInSpace(projectSpaces, effectiveActiveSpaceId),
+    [effectiveActiveSpaceId, projectSpaces],
+  );
+  const visibleProjects = useMemo(
+    () =>
+      activeSpaceProjectKeys === null
+        ? projects
+        : projects.filter((project) =>
+            activeSpaceProjectKeys.has(derivePhysicalProjectKey(project)),
+          ),
+    [activeSpaceProjectKeys, projects],
+  );
+  const projectScopes = useMemo(
+    () =>
+      buildHomeProjectScopes({
+        projects: visibleProjects,
+        environmentId: options.selectedEnvironmentId,
+        projectGroupingMode: options.projectGroupingMode,
+      }),
+    [options.projectGroupingMode, options.selectedEnvironmentId, visibleProjects],
   );
   const projectFilterOptions = useMemo(
     () =>
@@ -274,13 +312,17 @@ function ThreadNavigationSidebarPane(
   const selectedProjectRefs = useMemo(
     () =>
       selectedProjectScope === null
-        ? null
+        ? activeSpaceProjectKeys === null
+          ? null
+          : new Set(
+              visibleProjects.map((project) => scopedProjectKey(project.environmentId, project.id)),
+            )
         : new Set(
             selectedProjectScope.projectRefs.map((projectRef) =>
               scopedProjectKey(projectRef.environmentId, projectRef.projectId),
             ),
           ),
-    [selectedProjectScope],
+    [activeSpaceProjectKeys, selectedProjectScope, visibleProjects],
   );
   const scopedProjects = useMemo(
     () =>
@@ -1178,6 +1220,18 @@ function ThreadNavigationSidebarPane(
             : "No threads yet"}
     </Text>
   );
+  const spacesHeader = (
+    <HomeSpaces
+      spaces={projectSpaces}
+      scopes={allProjectScopes}
+      activeSpaceId={effectiveActiveSpaceId}
+      onSelect={(spaceId) => {
+        setSelectedProjectKey(null);
+        setActiveSpaceId(spaceId);
+      }}
+      onChange={(spaces) => savePreferences({ projectSpaces: spaces })}
+    />
+  );
 
   if (props.nativeChrome) {
     return (
@@ -1245,6 +1299,7 @@ function ThreadNavigationSidebarPane(
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 style={styles.threadList}
+                ListHeaderComponent={spacesHeader}
                 ListEmptyComponent={listEmpty}
               />
             </GestureDetector>
@@ -1304,6 +1359,7 @@ function ThreadNavigationSidebarPane(
               scrollEventThrottle={16}
               showsVerticalScrollIndicator={false}
               style={styles.threadList}
+              ListHeaderComponent={spacesHeader}
               ListEmptyComponent={listEmpty}
             />
           </GestureDetector>

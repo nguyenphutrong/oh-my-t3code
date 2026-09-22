@@ -6,6 +6,10 @@ import {
   type AtomCommandResult,
 } from "@t3tools/client-runtime/state/runtime";
 import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
+import {
+  assignProjectKeysToSpace,
+  projectSpaceForKeys,
+} from "@t3tools/client-runtime/state/project-grouping";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { type EnvironmentId, type ProjectIconOverride } from "@t3tools/contracts";
 import { useLocation, useNavigate } from "@tanstack/react-router";
@@ -14,6 +18,7 @@ import { Trash2Icon } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useComposerDraftStore } from "../../composerDraftStore";
+import { useClientSettings, useUpdateClientSettings } from "../../hooks/useSettings";
 import { releaseProjectDraftUploads } from "../../lib/composerDraftUploads";
 import { readLocalApi } from "../../localApi";
 import {
@@ -27,6 +32,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { ProjectFavicon } from "../ProjectFavicon";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import {
   SettingResetButton,
@@ -175,7 +181,13 @@ function ProjectDetail({
   const threads = useThreadShells();
   const updateProject = useAtomCommand(projectEnvironment.update, { reportFailure: false });
   const deleteProject = useAtomCommand(projectEnvironment.delete, { reportFailure: false });
+  const projectSpaces = useClientSettings((settings) => settings.projectSpaces);
+  const updateClientSettings = useUpdateClientSettings();
   const projectNameEditedRef = useRef(false);
+  const projectSpace = projectSpaceForKeys(
+    projectSpaces,
+    group.memberProjects.map((member) => member.physicalProjectKey),
+  );
 
   const faviconPath = representative.faviconPath ?? null;
   const projectIcon = representative.projectIcon ?? null;
@@ -475,6 +487,36 @@ function ProjectDetail({
                   Choose file
                 </Button>
               </div>
+            }
+          />
+          <SettingsRow
+            title="Space"
+            description="Keep this project and its threads together in the sidebar."
+            control={
+              <Select
+                value={projectSpace?.id ?? "unassigned"}
+                onValueChange={(spaceId) => {
+                  void updateClientSettings({
+                    projectSpaces: assignProjectKeysToSpace(
+                      projectSpaces,
+                      spaceId === "unassigned" ? null : spaceId,
+                      group.memberProjects.map((member) => member.physicalProjectKey),
+                    ),
+                  });
+                }}
+              >
+                <SelectTrigger size="sm" className="w-full sm:w-48" aria-label="Project space">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectPopup align="end" alignItemWithTrigger={false}>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {projectSpaces.map((space) => (
+                    <SelectItem key={space.id} value={space.id}>
+                      {space.name}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
             }
           />
         </SettingsSection>

@@ -175,7 +175,11 @@ import { stackedThreadToast, toastManager } from "./ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { ComposerHandleContext, useComposerHandleContext } from "../composerHandleContext";
 import type { ChatComposerHandle } from "./chat/ChatComposer";
-import { getProjectOrderKey, selectProjectGroupingSettings } from "../logicalProject";
+import {
+  getProjectOrderKey,
+  projectKeysInSpace,
+  selectProjectGroupingSettings,
+} from "../logicalProject";
 import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore";
 import {
   buildSidebarProjectPickerEntries,
@@ -709,6 +713,7 @@ function OpenCommandPaletteDialog(props: {
     }
   }, [activeThreadReferenceCopyTarget]);
   const projectOrder = useUiStateStore((store) => store.projectOrder);
+  const activeSpaceId = useUiStateStore((store) => store.sidebarSpaceId);
   const threads = useThreadShells();
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const { theme, themeHalves, resolvedTheme } = useTheme();
@@ -827,7 +832,7 @@ function OpenCommandPaletteDialog(props: {
       projects,
     ],
   );
-  const projectGroups = useMemo(
+  const allProjectGroups = useMemo(
     () =>
       sortLogicalProjectsForSidebar(
         unsortedProjectGroups,
@@ -835,6 +840,21 @@ function OpenCommandPaletteDialog(props: {
         clientSettings.sidebarProjectSortOrder,
       ),
     [clientSettings.sidebarProjectSortOrder, threads, unsortedProjectGroups],
+  );
+  const activeSpaceProjectKeys = useMemo(
+    () => projectKeysInSpace(clientSettings.projectSpaces, activeSpaceId),
+    [activeSpaceId, clientSettings.projectSpaces],
+  );
+  const projectGroups = useMemo(
+    () =>
+      activeSpaceProjectKeys === null
+        ? allProjectGroups
+        : allProjectGroups.filter((group) =>
+            group.memberProjects.some((project) =>
+              activeSpaceProjectKeys.has(project.physicalProjectKey),
+            ),
+          ),
+    [activeSpaceProjectKeys, allProjectGroups],
   );
   const contextualProjectRef = useMemo(
     () =>
