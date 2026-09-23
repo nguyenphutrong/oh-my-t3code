@@ -125,7 +125,7 @@ export function PreviewPanelShell(props: {
         isInline
           ? maximized
             ? "flex-1 border-l border-border"
-            : "shrink-0 border-l border-border"
+            : "my-2 mr-2 h-auto shrink-0 overflow-hidden rounded-2xl border border-border shadow-sm/5"
           : "w-full",
         collapsible &&
           "[[data-panel-animations=true]_&]:transition-[width] [[data-panel-animations=true]_&]:[transition-duration:var(--panel-animation-duration)] [[data-panel-animations=true]_&]:ease-out",

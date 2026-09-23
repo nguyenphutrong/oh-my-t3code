@@ -83,21 +83,27 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
     <Link
       aria-label="Go to threads"
       className={cn(
-        "relative z-10 ml-[var(--workspace-titlebar-content-left)] hidden h-7 w-fit min-w-0 shrink-0 items-center overflow-hidden rounded-md outline-hidden ring-ring focus-visible:ring-2 md:flex",
+        "relative z-10 ml-[var(--workspace-titlebar-content-left)] hidden h-9 w-fit min-w-0 shrink-0 items-center gap-2.5 overflow-hidden rounded-lg outline-hidden ring-ring focus-visible:ring-2 md:flex",
         onBackdrop ? "text-white" : "text-foreground",
       )}
       to="/"
     >
-      {/* Center the visible capitals, without the font's ascender/descender space. */}
-      <span className="inline-flex min-w-0 items-baseline gap-1 text-sm font-medium tracking-tight">
-        <T3Wordmark aria-label="T3" className="h-[1cap] w-auto shrink-0" />
+      <span
+        className={cn(
+          "inline-flex size-8 shrink-0 items-center justify-center rounded-[10px]",
+          onBackdrop ? "bg-white text-black" : "bg-lime-400 text-zinc-950",
+        )}
+      >
+        <T3Wordmark aria-label="T3" className="h-3.5 w-auto" />
+      </span>
+      <span className="inline-flex min-w-0 items-baseline text-[15px] font-semibold tracking-tight">
         <span
           className={cn(
             "truncate [text-box:trim-both_cap_alphabetic]",
-            onBackdrop ? "text-white/70" : "text-muted-foreground",
+            onBackdrop ? "text-white" : "text-foreground",
           )}
         >
-          Code
+          T3 Code
         </span>
       </span>
     </Link>

@@ -245,10 +245,11 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         <ProjectProjectionRetention />
         <Sidebar
           side="left"
+          variant="inset"
           collapsible="offcanvas"
           data-app-sidebar=""
           data-spaces-overview={spacesOverviewVisible}
-          className="border-r border-sidebar-border [&[data-spaces-overview=true]_[data-slot=sidebar-content]]:hidden [&[data-spaces-overview=true]_[data-slot=sidebar-footer]]:hidden"
+          className="[&[data-spaces-overview=true]_[data-slot=sidebar-content]]:hidden [&[data-spaces-overview=true]_[data-slot=sidebar-footer]]:hidden"
           resizable={{
             maxWidth: sidebarMaximumWidth,
             minWidth: THREAD_SIDEBAR_MIN_WIDTH,
