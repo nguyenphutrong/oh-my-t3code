@@ -5,7 +5,8 @@ to keep a terminal open.
 
 ## Manage the service
 
-Run these commands on the machine that will host T3 Code:
+Install the `oh-my-t3code` CLI first ([Install Oh My T3Code](./install.md#cli)), then
+run these commands on the machine that will host T3 Code:
 
 | Task                            | Command                          |
 | ------------------------------- | -------------------------------- |
@@ -16,6 +17,8 @@ Run these commands on the machine that will host T3 Code:
 | Stop and remove from startup    | `oh-my-t3code service uninstall` |
 
 Uninstalling the service leaves your projects, threads, and settings intact.
+Running `oh-my-t3code service install` again repairs a service that `oh-my-t3code service status`
+reports as broken.
 
 Install uses the current CLI version. Use `oh-my-t3code update --channel nightly` to move to the
 nightly train. An older CLI refuses to replace a newer service unless you explicitly add
@@ -25,10 +28,11 @@ Updating restarts the server. Finish active work first, and wait for any remote
 update already in progress. To match a remote client's version, follow
 [Updating T3 Code](./updating.md).
 
-Self-contained builds install as a download from the T3 Code GitHub release
-instead of through npm, so the machine running the service does not need
-Node.js or npm once the CLI is on it. To get the CLI onto a machine without
-Node, run the install script:
+Pass an exact version (`oh-my-t3code update 0.0.42`) to pin one, `--channel nightly` to
+switch trains, or `--allow-downgrade` to move backwards. `preview` is a
+maintainers' test train: its builds can be broken and are never offered as
+updates, so the installer and `oh-my-t3code update` ask for confirmation before
+installing one.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/nguyenphutrong/oh-my-t3code/main/scripts/install.sh | sh
@@ -116,7 +120,7 @@ that session open.
 
 On macOS, check **System Settings → General → Login Items** if the service no
 longer starts at login. If agent work cannot access Desktop, Documents, or
-Downloads, it may need Full Disk Access for the Node executable listed in
+Downloads, it may need Full Disk Access for the `oh-my-t3code` executable listed in
 `ProgramArguments` in
 `~/Library/LaunchAgents/app.bytrong.ohmyt3code.service.plist`.
 

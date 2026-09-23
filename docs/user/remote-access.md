@@ -107,17 +107,16 @@ In the desktop app, open **Settings → Connections → Add environment**, choos
 or reuses a server there and opens the port forward for you. Projects, provider
 credentials, and agent work stay on the remote machine.
 
-The remote host needs a compatible [Node.js installation](./install.md#requirements)
-and [provider setup](./install.md#providers). If launch cannot find Node or reports
-an incompatible version, check it through a non-interactive SSH session:
+The remote host must be Linux or an Apple Silicon Mac with `curl` or `wget`,
+`tar`, `sha256sum` or `shasum`, and [provider setup](./install.md#providers).
+The first launch downloads Oh My T3Code's server to `~/.oh-my-t3code/runtime` on the host, so
+it takes longer than later ones.
+Provider CLIs must be on the `PATH` of a non-interactive login shell there;
+check with:
 
 ```bash
-ssh user@example.com 'sh -lc "command -v node && node --version"'
+ssh user@example.com 'sh -lc "command -v claude codex"'
 ```
-
-Configure your version manager for non-interactive shells if this differs from
-your normal terminal. With nvm, setting a compatible default, such as
-`nvm alias default 24`, can resolve the problem.
 
 If SSH reconnecting fails after an app update, retry the launch once. Removing
 the connection stops a server that T3 Code launched; a server that was already

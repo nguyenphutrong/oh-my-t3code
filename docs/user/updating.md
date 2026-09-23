@@ -31,7 +31,7 @@ The offered action depends on how the server runs:
 | **Update the desktop app** | Update the desktop app on the machine running the server, then reopen it if needed.                                                                                                             |
 | **Copy update command**    | Stop the command-line server on its host and relaunch with the copied command, keeping your usual startup options.                                                                              |
 
-For a background service, run the matching version's CLI on the host:
+On the host, run:
 
 ```sh
 oh-my-t3code update <client-version>
