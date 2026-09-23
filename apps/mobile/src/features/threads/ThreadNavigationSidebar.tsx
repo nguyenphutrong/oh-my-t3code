@@ -1363,13 +1363,13 @@ function ThreadNavigationSidebarPane(
                 renderItem={renderListItem}
                 contentContainerStyle={[
                   styles.threadListContent,
-                  materialYouStyleLayoutActive ? { paddingHorizontal: 0 } : null,
+                  Platform.OS === "android" ? { paddingHorizontal: 0 } : null,
                   {
                     paddingBottom:
                       Platform.OS === "android"
                         ? Math.max(insets.bottom, 16) + 88 - insets.bottom
                         : 16 + insets.bottom,
-                    paddingTop: materialYouStyleLayoutActive ? 6 : topListInset,
+                    paddingTop: Platform.OS === "android" ? 6 : topListInset,
                   },
                 ]}
                 keyboardDismissMode="on-drag"
