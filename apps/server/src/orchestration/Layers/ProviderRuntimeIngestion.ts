@@ -1800,15 +1800,15 @@ const make = Effect.gen(function* () {
         });
         const missingMessages = findMissingHistoryMessages(
           existingMessages.flatMap((message) =>
-            message.role === "system"
-              ? []
-              : [
+            message.role === "user" || message.role === "assistant"
+              ? [
                   {
                     id: message.messageId,
                     role: message.role,
                     text: message.text,
                   },
-                ],
+                ]
+              : [],
           ),
           event.payload.messages,
         );

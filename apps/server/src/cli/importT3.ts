@@ -388,7 +388,7 @@ export const importT3Command = Command.make("import-t3", { baseDir: baseDirFlag 
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const envHome = yield* Config.string("T3CODE_HOME").pipe(Config.option);
+      const envHome = yield* Config.String("T3CODE_HOME").pipe(Config.option);
       const destinationBaseDir = yield* resolveBaseDir(
         Option.getOrUndefined(flags.baseDir) ?? Option.getOrUndefined(envHome),
       );
