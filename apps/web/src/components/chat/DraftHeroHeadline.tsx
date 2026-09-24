@@ -140,17 +140,10 @@ export function DraftHeroHeadline({
             // project title) so the hero sentence reads naturally: an
             // aria-label here would replace the title with an action phrase
             // mid-sentence and baffle screen-reader users.
-            <MenuTrigger className="pointer-events-auto inline-block max-w-72 align-baseline text-foreground transition-colors hover:text-foreground/75 focus-visible:rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" />
+            <MenuTrigger className="pointer-events-auto inline-block max-w-64 truncate border-foreground/60 border-b border-dotted align-baseline text-foreground transition-colors hover:border-foreground/80 focus-visible:rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" />
           }
         >
-          <span className="inline-flex max-w-full items-center gap-2">
-            {activeProjectGroup ? (
-              <ProjectFavicon project={activeProjectGroup} className="size-7 rounded-lg" />
-            ) : null}
-            <span className="truncate border-foreground/35 border-b border-dashed">
-              {activeProjectDisplayName ?? "Choose a project"}
-            </span>
-          </span>
+          {activeProjectDisplayName ?? "Choose a project"}
         </TooltipTrigger>
         {activeProjectDisplayName ? (
           <TooltipPopup side="top">{activeProjectDisplayName}</TooltipPopup>
@@ -250,7 +243,7 @@ export function DraftHeroHeadline({
   return (
     <h1
       aria-label={headingLabel}
-      className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-center gap-x-2 text-center text-2xl font-medium tracking-tight text-foreground sm:text-3xl"
+      className="mx-auto w-full max-w-5xl text-center font-normal text-2xl text-foreground tracking-tight sm:text-3xl"
     >
       {hasResolvedProject ? (
         <>What should we build in {projectSelector}?</>
