@@ -215,14 +215,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/appearance",
   },
   {
-    id: "environment-identification",
-    title: "Environment identification",
-    to: "/settings/appearance",
-    searchTerms: ["dev nightly artwork pill label hide none"],
-    // The setting is stage-dependent, so its parent section is the stable destination.
-    targetId: "appearance-interface",
-  },
-  {
     id: "interface-font",
     title: "Interface font",
     to: "/settings/appearance",

@@ -23,7 +23,6 @@ import {
   mergeEnvironmentSettings,
   persistClientSettingsPatch,
   persistClientSettingsUpdate,
-  resolveEnvironmentIdentificationMode,
 } from "./useSettings";
 
 beforeEach(() => {
@@ -324,48 +323,6 @@ describe("persistClientSettingsUpdate", () => {
     await expect(
       persistClientSettingsUpdate((current) => ({ ...current, wordWrap: false }), persist),
     ).resolves.toMatchObject({ wordWrap: false });
-  });
-});
-
-describe("resolveEnvironmentIdentificationMode", () => {
-  it("keeps identification hidden until client settings hydrate", () => {
-    expect(resolveEnvironmentIdentificationMode({ mode: "artwork", settingsHydrated: false })).toBe(
-      "none",
-    );
-    expect(resolveEnvironmentIdentificationMode({ mode: "pill", settingsHydrated: true })).toBe(
-      "pill",
-    );
-  });
-
-  it("uses a pill instead of artwork with a palette theme", () => {
-    expect(
-      resolveEnvironmentIdentificationMode({
-        mode: "artwork",
-        settingsHydrated: true,
-        paletteThemeActive: true,
-      }),
-    ).toBe("pill");
-  });
-
-  it("respects none with a palette theme", () => {
-    expect(
-      resolveEnvironmentIdentificationMode({
-        mode: "none",
-        settingsHydrated: true,
-        paletteThemeActive: true,
-      }),
-    ).toBe("none");
-  });
-
-  it("keeps artwork when the palette theme opts into it", () => {
-    expect(
-      resolveEnvironmentIdentificationMode({
-        mode: "artwork",
-        settingsHydrated: true,
-        paletteThemeActive: true,
-        paletteThemeAllowsArtwork: true,
-      }),
-    ).toBe("artwork");
   });
 });
 
