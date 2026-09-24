@@ -59,12 +59,12 @@ export function SidebarSpaces(props: {
     <>
       <nav
         aria-label="Spaces"
-        className="relative z-10 -mt-[var(--workspace-topbar-height)] flex h-[var(--workspace-topbar-height)] shrink-0 items-center pl-[var(--workspace-titlebar-content-left)] pr-3"
+        className="relative z-10 -mt-[var(--workspace-topbar-height)] flex h-[var(--workspace-topbar-height)] shrink-0 items-start pt-1 pl-[calc(var(--workspace-titlebar-content-left)-0.75rem)] pr-3"
       >
         <DropdownMenu>
           <DropdownMenuTrigger
             aria-label="Switch space"
-            className="flex h-9 max-w-full items-center gap-2 rounded-lg bg-sidebar-row-hover px-2.5 text-sm font-semibold text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-row-active focus-visible:ring-2 focus-visible:ring-ring"
+            className="-translate-y-px flex h-7 max-w-full items-center gap-2 rounded-md bg-sidebar-row-hover px-2 text-sm font-semibold text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-row-active focus-visible:ring-2 focus-visible:ring-ring"
           >
             {activeSpace ? (
               <span
@@ -199,7 +199,10 @@ export function SidebarSpaces(props: {
               <XIcon className="size-4" />
             </button>
           </header>
-          <ScrollArea className="min-h-0 flex-1" radius="none">
+          <ScrollArea
+            className="min-h-0 flex-1 [&>[data-orientation=vertical]]:hidden"
+            radius="none"
+          >
             <div className="flex h-full min-w-max gap-4 pb-3 pr-4">
               {[null, ...props.spaces].map((space) => {
                 const spaceId = space?.id ?? null;
