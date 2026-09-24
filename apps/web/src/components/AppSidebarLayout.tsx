@@ -222,7 +222,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           variant="inset"
           data-app-sidebar=""
           data-spaces-overview={spacesOverviewVisible}
-          className="[&[data-spaces-overview=true]]:py-0 [&[data-spaces-overview=true]_[data-slot=sidebar-content-root]]:hidden [&[data-spaces-overview=true]_[data-slot=sidebar-footer]]:hidden"
+          className="[&[data-spaces-overview=true]_[data-slot=sidebar-content-root]]:hidden [&[data-spaces-overview=true]_[data-slot=sidebar-footer]]:hidden"
           resizable={{
             maxWidth: sidebarMaximumWidth,
             minWidth: THREAD_SIDEBAR_MIN_WIDTH,
