@@ -2,6 +2,7 @@ import { projectSpaceForKeys } from "@t3tools/client-runtime/state/project-group
 import type { ProjectSpace } from "@t3tools/contracts";
 import {
   CheckIcon,
+  ChevronDownIcon,
   Layers3Icon,
   LayoutGridIcon,
   MoreHorizontalIcon,
@@ -19,8 +20,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/menu";
+
+const spaceDotColors = ["bg-orange-500", "bg-sky-500", "bg-emerald-500", "bg-violet-500"];
 
 export function SidebarSpaces(props: {
   spaces: ReadonlyArray<ProjectSpace>;
@@ -44,6 +48,7 @@ export function SidebarSpaces(props: {
     200,
   );
   const renderedEditor = editorPresence.value;
+  const activeSpace = props.spaces.find((space) => space.id === props.activeSpaceId) ?? null;
   const selectSpace = (spaceId: string | null) => {
     props.onSelect(spaceId);
     if (props.expanded) props.onExpandedChange(false);
@@ -51,90 +56,62 @@ export function SidebarSpaces(props: {
 
   return (
     <>
-      <nav
-        aria-label="Spaces"
-        className="flex h-9 shrink-0 items-center gap-1 overflow-x-auto px-3"
-      >
-        <button
-          type="button"
-          aria-label="All spaces"
-          aria-current={props.activeSpaceId === null ? "page" : undefined}
-          className={cn(
-            "flex size-7 shrink-0 items-center justify-center rounded-md text-sidebar-muted-foreground outline-none transition-[background-color,color,transform] duration-150 ease-out hover:bg-sidebar-row-hover hover:text-sidebar-foreground active:scale-95 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring",
-            props.activeSpaceId === null && "bg-sidebar-row-active text-sidebar-foreground",
-          )}
-          onClick={() => selectSpace(null)}
-        >
-          <Layers3Icon className="size-4" />
-        </button>
-
-        {props.spaces.map((space) => {
-          const active = space.id === props.activeSpaceId;
-          return (
-            <div
-              key={space.id}
-              className={cn(
-                "flex h-7 shrink-0 items-center rounded-md transition-colors duration-150 motion-reduce:transition-none",
-                active && "bg-sidebar-row-active text-sidebar-foreground",
-              )}
-            >
-              <button
-                type="button"
-                aria-current={active ? "page" : undefined}
+      <nav aria-label="Spaces" className="h-10 shrink-0 px-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label="Switch space"
+            className="flex h-9 max-w-full items-center gap-2 rounded-lg bg-sidebar-row-hover px-2.5 text-sm font-semibold text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-row-active focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {activeSpace ? (
+              <span
+                aria-hidden
                 className={cn(
-                  "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-sidebar-muted-foreground outline-none transition-[color,transform] duration-150 ease-out hover:bg-sidebar-row-hover hover:text-sidebar-foreground active:scale-[0.97] motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring",
-                  active && "text-sidebar-foreground",
+                  "size-2.5 shrink-0 rounded-full",
+                  spaceDotColors[props.spaces.indexOf(activeSpace) % spaceDotColors.length],
                 )}
-                onClick={() => selectSpace(space.id)}
-              >
-                <span aria-hidden className="flex size-4 items-center justify-center uppercase">
-                  {Array.from(space.name)[0]}
-                </span>
-                <span className="max-w-24 truncate">{space.name}</span>
-              </button>
-              {active ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    aria-label={`Manage ${space.name} space`}
-                    className="mr-0.5 flex size-6 items-center justify-center rounded text-sidebar-muted-foreground outline-none hover:bg-sidebar-row-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <MoreHorizontalIcon className="size-3.5" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem onClick={() => setEditor({ space, name: space.name })}>
-                      Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuItem variant="destructive" onClick={() => props.onDelete(space)}>
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
-            </div>
-          );
-        })}
-
-        <button
-          type="button"
-          aria-label="Create space"
-          className="flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-sidebar-muted-foreground outline-none transition-transform duration-150 ease-out hover:bg-sidebar-row-hover hover:text-sidebar-foreground active:scale-95 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={() => setEditor({ space: null, name: "" })}
-        >
-          <PlusIcon className="size-3.5" />
-          {props.spaces.length === 0 ? "Space" : null}
-        </button>
-        <button
-          type="button"
-          aria-label="Manage spaces"
-          aria-expanded={props.expanded}
-          className={cn(
-            "flex size-7 shrink-0 items-center justify-center rounded-md text-sidebar-muted-foreground outline-none transition-[background-color,color,transform] duration-150 ease-out hover:bg-sidebar-row-hover hover:text-sidebar-foreground active:scale-95 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring",
-            props.expanded && "bg-sidebar-row-active text-sidebar-foreground",
-          )}
-          onClick={() => props.onExpandedChange(!props.expanded)}
-        >
-          <LayoutGridIcon className="size-3.5" />
-        </button>
+              />
+            ) : (
+              <Layers3Icon className="size-4 shrink-0 text-sidebar-muted-foreground" />
+            )}
+            <span className="min-w-0 truncate">{activeSpace?.name ?? "All Spaces"}</span>
+            <ChevronDownIcon className="ml-auto size-3.5 shrink-0 text-sidebar-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            sideOffset={6}
+            className="w-[calc(var(--sidebar-width)-1.5rem)]"
+          >
+            <DropdownMenuItem onClick={() => selectSpace(null)}>
+              <CheckIcon className={cn("size-4", props.activeSpaceId !== null && "opacity-0")} />
+              <Layers3Icon className="size-4 text-muted-foreground" />
+              All Spaces
+            </DropdownMenuItem>
+            {props.spaces.map((space, index) => (
+              <DropdownMenuItem key={space.id} onClick={() => selectSpace(space.id)}>
+                <CheckIcon
+                  className={cn("size-4", space.id !== props.activeSpaceId && "opacity-0")}
+                />
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-2.5 shrink-0 rounded-full",
+                    spaceDotColors[index % spaceDotColors.length],
+                  )}
+                />
+                <span className="min-w-0 flex-1 truncate">{space.name}</span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setEditor({ space: null, name: "" })}>
+              <PlusIcon className="size-4" />
+              New Space…
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => props.onExpandedChange(true)}>
+              <LayoutGridIcon className="size-4" />
+              Manage Spaces
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </nav>
 
       {editorPresence.present && renderedEditor ? (
@@ -343,5 +320,40 @@ export function SidebarSpaces(props: {
         </div>
       ) : null}
     </>
+  );
+}
+
+export function SidebarSpaceIndicators(props: {
+  spaces: ReadonlyArray<ProjectSpace>;
+  activeSpaceId: string | null;
+  onSelect: (spaceId: string) => void;
+}) {
+  if (props.spaces.length < 2) return null;
+
+  return (
+    <nav
+      aria-label="Space shortcuts"
+      className="flex h-7 shrink-0 items-center justify-center gap-1"
+    >
+      {props.spaces.map((space, index) => (
+        <button
+          key={space.id}
+          type="button"
+          aria-label={`Switch to ${space.name}`}
+          aria-current={space.id === props.activeSpaceId ? "page" : undefined}
+          className="flex size-5 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => props.onSelect(space.id)}
+        >
+          <span
+            aria-hidden
+            className={cn(
+              "size-2 rounded-full transition-[transform,opacity]",
+              spaceDotColors[index % spaceDotColors.length],
+              space.id === props.activeSpaceId ? "scale-110 opacity-100" : "opacity-35",
+            )}
+          />
+        </button>
+      ))}
+    </nav>
   );
 }

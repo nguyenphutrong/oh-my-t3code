@@ -240,7 +240,7 @@ import {
 } from "./ui/combobox";
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
-import { SidebarSpaces } from "./sidebar/SidebarSpaces";
+import { SidebarSpaceIndicators, SidebarSpaces } from "./sidebar/SidebarSpaces";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { Popover, PopoverPopup, PopoverTrigger } from "./ui/popover";
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
@@ -5055,6 +5055,13 @@ export default function Sidebar(props: {
           ) : null}
         </SidebarGroup>
       </SidebarContent>
+      {!props.spacesOverviewOpen ? (
+        <SidebarSpaceIndicators
+          spaces={projectSpaces}
+          activeSpaceId={activeSpaceId}
+          onSelect={selectSpace}
+        />
+      ) : null}
       <SidebarChromeFooter />
     </>
   );
