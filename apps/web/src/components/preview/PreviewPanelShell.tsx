@@ -124,8 +124,8 @@ export function PreviewPanelShell(props: {
         "relative flex h-full min-h-0 min-w-0 max-w-full flex-col self-stretch bg-background",
         isInline
           ? maximized
-            ? "flex-1 border-l border-border"
-            : "my-2 mr-2 h-auto shrink-0 overflow-hidden rounded-xl border border-border shadow-sm/5"
+            ? "flex-1 overflow-hidden rounded-xl border border-border shadow-sm/5"
+            : "h-auto shrink-0 overflow-hidden rounded-xl border border-border shadow-sm/5"
           : "w-full",
         collapsible &&
           "[[data-panel-animations=true]_&]:transition-[width] [[data-panel-animations=true]_&]:[transition-duration:var(--panel-animation-duration)] [[data-panel-animations=true]_&]:ease-out",
