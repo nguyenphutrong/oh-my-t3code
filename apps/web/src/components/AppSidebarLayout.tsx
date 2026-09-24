@@ -245,8 +245,8 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         <ProjectProjectionRetention />
         <Sidebar
           side="left"
-          variant="floating"
           collapsible="offcanvas"
+          variant="inset"
           data-app-sidebar=""
           data-spaces-overview={spacesOverviewVisible}
           className="[&[data-spaces-overview=true]]:py-0 [&[data-spaces-overview=true]_[data-slot=sidebar-content-root]]:hidden [&[data-spaces-overview=true]_[data-slot=sidebar-footer]]:hidden"
