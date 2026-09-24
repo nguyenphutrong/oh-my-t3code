@@ -1590,6 +1590,16 @@ body {
   background-size: var(--surface-grain-size);
 }
 
+.workspace-islands-shell {
+  background: linear-gradient(145deg, var(--color-zinc-100), var(--color-zinc-200));
+
+  @variant dark {
+    background:
+      radial-gradient(circle at top left, rgb(88 70 117 / 55%), transparent 46%),
+      linear-gradient(145deg, #27262d, #18181b);
+  }
+}
+
 pre,
 code {
   font-family: var(--font-mono);
