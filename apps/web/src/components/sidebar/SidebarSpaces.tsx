@@ -64,7 +64,7 @@ export function SidebarSpaces(props: {
         <DropdownMenu>
           <DropdownMenuTrigger
             aria-label="Switch space"
-            className="-translate-y-px flex h-7 max-w-full items-center gap-2 rounded-md bg-sidebar-row-hover px-2 text-sm font-semibold text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-row-active focus-visible:ring-2 focus-visible:ring-ring"
+            className="-translate-y-px flex h-7 max-w-full items-center gap-2 rounded-md bg-sidebar-row-hover px-2 text-sm font-semibold text-sidebar-foreground outline-none transition-colors [-webkit-app-region:no-drag] hover:bg-sidebar-row-active focus-visible:ring-2 focus-visible:ring-ring"
           >
             {activeSpace ? (
               <span
