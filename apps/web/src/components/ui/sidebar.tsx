@@ -308,7 +308,7 @@ function Sidebar({
           {...props}
         >
           <div
-            className="flex h-full w-full flex-col bg-sidebar surface-grain group-data-[variant=floating]:rounded-2xl group-data-[variant=inset]:rounded-2xl group-data-[variant=floating]:border group-data-[variant=inset]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=inset]:border-sidebar-border group-data-[variant=floating]:shadow-sm/5 group-data-[variant=inset]:shadow-sm/5"
+            className="flex h-full w-full flex-col bg-sidebar surface-grain group-data-[variant=floating]:overflow-hidden group-data-[variant=inset]:overflow-hidden group-data-[variant=floating]:rounded-2xl group-data-[variant=inset]:rounded-2xl group-data-[variant=floating]:border group-data-[variant=inset]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=inset]:border-sidebar-border group-data-[variant=floating]:shadow-sm/5 group-data-[variant=inset]:shadow-sm/5"
             data-sidebar="sidebar"
             data-slot="sidebar-inner"
           >
