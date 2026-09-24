@@ -12,7 +12,7 @@ function Shell({
     <div
       data-slot="composer-shell"
       className={cn(
-        "@container/composer-surface group/composer-surface relative isolate mx-auto w-full max-w-3xl",
+        "@container/composer-surface group/composer-surface relative isolate mx-auto w-full max-w-4xl",
         "[--chat-composer-drawer-inset:1.375rem] [--chat-composer-glass-surface:var(--card)] [--chat-composer-outline:rgb(0_0_0/8%)]",
         "dark:[--chat-composer-glass-surface:var(--surface-raised)] dark:[--chat-composer-highlight:rgb(255_255_255/3%)] dark:[--chat-composer-outline:color-mix(in_srgb,var(--color-white)_5%,transparent)]",
         "[html[data-theme-id]_&]:[--chat-composer-glass-surface:var(--app-theme-surface-raised)] [html[data-theme-id]_&]:[--chat-composer-outline:var(--app-theme-toolbar-border)]",
@@ -40,7 +40,7 @@ function Host({ className, ...props }: ComponentProps<"div">) {
     <div
       data-slot="composer-host"
       className={cn(
-        "relative z-10 w-full rounded-[22px] shadow-[0_12px_28px_-18px_rgb(0_0_0/40%)] after:z-1 dark:shadow-none",
+        "relative z-10 w-full rounded-[22px] shadow-[0_8px_24px_-18px_rgb(0_0_0/30%)] after:z-1 dark:shadow-none",
         outlineClasses,
         "group-has-data-[composer-banner-surface=attached]/composer-surface:shadow-none group-has-data-[composer-banner-surface=attached]/composer-surface:after:hidden",
         className,
@@ -59,7 +59,7 @@ function Main({ className, ...props }: ComponentProps<"div">) {
         outlineClasses,
         "after:z-20 after:hidden group-has-data-[composer-banner-surface=attached]/composer-surface:after:block",
         "group-has-data-[composer-banner-surface=attached]/composer-surface:bg-[color-mix(in_srgb,var(--chat-composer-glass-surface)_var(--glass-opacity),transparent)] group-has-data-[composer-banner-surface=attached]/composer-surface:backdrop-blur-(--glass-blur) group-has-data-[composer-banner-surface=attached]/composer-surface:backdrop-saturate-(--glass-saturation)",
-        "group-has-data-[composer-banner-surface=attached]/composer-surface:shadow-[0_12px_28px_-18px_rgb(0_0_0/40%)] dark:group-has-data-[composer-banner-surface=attached]/composer-surface:shadow-none",
+        "group-has-data-[composer-banner-surface=attached]/composer-surface:shadow-[0_8px_24px_-18px_rgb(0_0_0/30%)] dark:group-has-data-[composer-banner-surface=attached]/composer-surface:shadow-none",
         "not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:group-has-data-[composer-banner-surface=attached]/composer-surface:bg-(--chat-composer-glass-surface)",
         "group-has-data-[composer-banner-surface=attached]/composer-surface:**:data-[chat-composer-mobile-collapsed=true]:min-h-[calc(1rem+1px)]",
         className,

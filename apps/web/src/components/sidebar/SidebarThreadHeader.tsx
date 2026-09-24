@@ -1,8 +1,8 @@
 /**
- * The sidebar header: one row holding search, project scope and new thread.
+ * The sidebar header: a primary new-thread action above search and project controls.
  *
- * Search owns the row's text and spans it. Project scope collapses to an icon
- * that sits with new-project and new-thread as a segmented group at the end.
+ * Search owns the second row's text and spans it. Project scope collapses to an icon
+ * that sits with new-project at the end.
  * The scope icon swaps to the project favicon while a project is selected,
  * so the header still names the scope after the row that showed it is gone.
  *
@@ -78,81 +78,78 @@ export function SidebarThreadHeader({
     : "New thread";
 
   return (
-    <div className="flex items-center gap-1">
-      <div
-        ref={searchFieldRef}
-        className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+    <div className="flex flex-col gap-2">
+      <SidebarMenuButton
+        type="button"
+        variant="primary"
+        aria-label={newThreadLabel}
+        aria-describedby={showNewThreadInProjectHint ? "sidebar-new-thread-hint" : undefined}
+        disabled={newThreadDisabled}
+        onClick={onNewThread}
       >
-        <SearchIcon className="size-4 shrink-0 text-[var(--sidebar-icon-color)]" />
-        <SidebarInput
-          ref={searchInputRef}
-          nativeInput
-          type="search"
-          value={searchQuery}
-          onChange={(event) => onSearchQueryChange(event.currentTarget.value)}
-          onKeyDown={onSearchKeyDown}
-          placeholder="Search"
-          aria-label="Search threads"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded={resultsVisible}
-          aria-controls={resultsVisible ? "sidebar-thread-search-results" : undefined}
-          aria-activedescendant={
-            activeResultExists
-              ? `sidebar-thread-search-result-${activeSearchResultIndex}`
-              : undefined
-          }
-          className="min-w-0 flex-1"
-        />
-        {isSearching ? (
-          <Button
-            type="button"
-            size="icon-micro"
-            variant="ghost"
-            className="shrink-0 text-sidebar-muted-foreground hover:bg-sidebar-control-surface hover:text-sidebar-foreground"
-            aria-label="Clear thread search"
-            onClick={() => {
-              onClearSearch();
-              searchInputRef.current?.focus();
-            }}
-          >
-            <XIcon className="size-3" />
-          </Button>
+        <SquarePenIcon />
+        <span className="flex-1">New thread</span>
+        {newThreadShortcutLabel ? (
+          <span className="text-xs font-normal opacity-70">{newThreadShortcutLabel}</span>
         ) : null}
-      </div>
-      {/* Unfilled like the search field beside it: the buttons carry their own
-          hover states, and a background well reads far louder on themed
-          palettes than on the base light and dark ones. */}
-      <div className="flex shrink-0 items-center">
+      </SidebarMenuButton>
+      <div className="flex items-center gap-1">
+        <div
+          ref={searchFieldRef}
+          className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md bg-sidebar-control-surface/70 px-2 py-1.5 text-sm font-medium text-sidebar-muted-foreground hover:text-sidebar-foreground"
+        >
+          <SearchIcon className="size-4 shrink-0 text-[var(--sidebar-icon-color)]" />
+          <SidebarInput
+            ref={searchInputRef}
+            nativeInput
+            type="search"
+            value={searchQuery}
+            onChange={(event) => onSearchQueryChange(event.currentTarget.value)}
+            onKeyDown={onSearchKeyDown}
+            placeholder="Search"
+            aria-label="Search threads"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={resultsVisible}
+            aria-controls={resultsVisible ? "sidebar-thread-search-results" : undefined}
+            aria-activedescendant={
+              activeResultExists
+                ? `sidebar-thread-search-result-${activeSearchResultIndex}`
+                : undefined
+            }
+            className="min-w-0 flex-1"
+          />
+          {isSearching ? (
+            <Button
+              type="button"
+              size="icon-micro"
+              variant="ghost"
+              className="shrink-0 text-sidebar-muted-foreground hover:bg-sidebar-control-surface hover:text-sidebar-foreground"
+              aria-label="Clear thread search"
+              onClick={() => {
+                onClearSearch();
+                searchInputRef.current?.focus();
+              }}
+            >
+              <XIcon className="size-3" />
+            </Button>
+          ) : null}
+        </div>
         {hasProjects ? (
-          <>
+          <div className="flex shrink-0 items-center">
             {projectScope}
             <SidebarHeaderIconButton label="New project" onClick={onNewProject}>
               <FolderPlusIcon />
             </SidebarHeaderIconButton>
-          </>
+          </div>
         ) : null}
-        <SidebarHeaderIconButton
-          label="New thread"
-          tooltip={
-            showNewThreadInProjectHint ? (
-              <span className="flex flex-col gap-0.5">
-                <span>{newThreadLabel}</span>
-                <span className="text-muted-foreground">
-                  New thread in current project: Shift+click
-                  {newThreadInProjectShortcutLabel ? ` (${newThreadInProjectShortcutLabel})` : ""}
-                </span>
-              </span>
-            ) : (
-              newThreadLabel
-            )
-          }
-          disabled={newThreadDisabled}
-          onClick={onNewThread}
-        >
-          <SquarePenIcon />
-        </SidebarHeaderIconButton>
       </div>
+      {showNewThreadInProjectHint ? (
+        <span id="sidebar-new-thread-hint" className="sr-only">
+          New thread in current project: Shift+click
+          {newThreadInProjectShortcutLabel ? ` (${newThreadInProjectShortcutLabel})` : ""}
+        </span>
+      ) : null}
     </div>
   );
 }

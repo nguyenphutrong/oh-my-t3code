@@ -243,7 +243,7 @@ export function DraftHeroHeadline({
   return (
     <h1
       aria-label={headingLabel}
-      className="mx-auto w-full max-w-5xl text-center font-normal text-2xl text-foreground tracking-tight sm:text-3xl"
+      className="mx-auto w-full max-w-5xl text-balance text-center text-2xl font-medium tracking-tight text-foreground sm:text-3xl"
     >
       {hasResolvedProject ? (
         <>What should we build in {projectSelector}?</>
