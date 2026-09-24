@@ -600,6 +600,7 @@ function SidebarContent({
         scrollFade
         scrollFadePadding={false}
         className="h-auto min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]]:[--fade-size:0.75rem]"
+        data-slot="sidebar-content-root"
       >
         <div
           // Reordered rows must not pull the viewport to their new position.
