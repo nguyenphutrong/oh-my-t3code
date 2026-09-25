@@ -35,8 +35,10 @@ const testState = vi.hoisted(() => {
     setLogicalProjectDraftThreadId: vi.fn(),
     setModelSelection: vi.fn(),
   };
+  const assignThreadToSpace = vi.fn();
 
   return {
+    assignThreadToSpace,
     completeProjectFileRead: (value: null) => completeProjectFileRead(value),
     draftStore,
     get projectFileRead() {
@@ -63,6 +65,7 @@ const testState = vi.hoisted(() => {
       router.navigate.mockClear();
       draftStore.setDraftThreadContext.mockClear();
       draftStore.setLogicalProjectDraftThreadId.mockClear();
+      assignThreadToSpace.mockClear();
       projectFileRead = new Promise<null>((resolve) => {
         completeProjectFileRead = resolve;
       });
@@ -176,7 +179,12 @@ vi.mock("../state/server", () => ({
 vi.mock("../threadRoutes", () => ({ resolveThreadRouteTarget: () => null }));
 vi.mock("../uiStateStore", () => ({
   legacyProjectCwdPreferenceKey: () => "remote-project",
-  useUiStateStore: () => [],
+  useUiStateStore: Object.assign(() => [], {
+    getState: () => ({ sidebarSpaceId: "space-1" }),
+  }),
+}));
+vi.mock("./useAssignProjectToActiveSpace", () => ({
+  useAssignThreadToSpace: () => testState.assignThreadToSpace,
 }));
 vi.mock("./useSettings", () => ({ useClientSettings: () => ({}) }));
 
@@ -212,6 +220,11 @@ describe.each([
         projectRef,
         opened!.draftId,
         expect.objectContaining({ runtimeMode }),
+      );
+      expect(testState.assignThreadToSpace).toHaveBeenCalledWith(
+        "space-1",
+        "environment-ssh",
+        opened!.threadId,
       );
     },
   );
