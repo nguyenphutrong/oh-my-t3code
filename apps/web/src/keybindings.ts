@@ -3,9 +3,11 @@ import {
   type KeybindingShortcut,
   type KeybindingWhenNode,
   MODEL_PICKER_JUMP_KEYBINDING_COMMANDS,
+  SPACE_JUMP_KEYBINDING_COMMANDS,
   type ResolvedKeybindingsConfig,
   THREAD_JUMP_KEYBINDING_COMMANDS,
   type ModelPickerJumpKeybindingCommand,
+  type SpaceJumpKeybindingCommand,
   type ThreadJumpKeybindingCommand,
 } from "@t3tools/contracts";
 import { isElectron } from "./env";
@@ -307,6 +309,11 @@ export function threadJumpCommandForIndex(index: number): ThreadJumpKeybindingCo
 
 export function threadJumpIndexFromCommand(command: string): number | null {
   const index = THREAD_JUMP_KEYBINDING_COMMANDS.indexOf(command as ThreadJumpKeybindingCommand);
+  return index === -1 ? null : index;
+}
+
+export function spaceJumpIndexFromCommand(command: string): number | null {
+  const index = SPACE_JUMP_KEYBINDING_COMMANDS.indexOf(command as SpaceJumpKeybindingCommand);
   return index === -1 ? null : index;
 }
 

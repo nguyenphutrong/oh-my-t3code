@@ -1,6 +1,7 @@
 import { requestCustomSnooze } from "./CustomSnoozeDialog";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/shared/threadPullRequests";
+import { BUILT_IN_THEMES } from "@t3tools/shared/themePalettes";
 import { useAtomValue } from "@effect/atom-react";
 import { replaceComposerContextReferences } from "@t3tools/shared/composerContextReferences";
 import * as Schema from "effect/Schema";
@@ -93,6 +94,7 @@ import {
   resolveShortcutCommand,
   shortcutLabelForCommand,
   shouldShowThreadJumpHintsForModifiers,
+  spaceJumpIndexFromCommand,
   threadJumpCommandForIndex,
   threadJumpIndexFromCommand,
   threadTraversalDirectionFromCommand,
@@ -131,8 +133,11 @@ import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
 import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
+import { useCustomThemes } from "../hooks/useCustomThemes";
+import { useEnvironmentThemeDefinitions } from "../hooks/useEnvironmentTheme";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useNowMinute } from "../hooks/useNowMinute";
+import { useTheme } from "../hooks/useTheme";
 import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
 import {
   readThreadShell,
@@ -2171,6 +2176,24 @@ export default function Sidebar(props: {
   const sidebarProjectSortOrder = useClientSettings((s) => s.sidebarProjectSortOrder);
   const projectSpaces = useClientSettings((s) => s.projectSpaces);
   const updateClientSettings = useUpdateClientSettings();
+  const customThemes = useCustomThemes();
+  const environmentThemes = useEnvironmentThemeDefinitions();
+  const { setTheme } = useTheme();
+  const spaceThemeOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return [
+      { id: "system", label: "System" },
+      { id: "light", label: "Light" },
+      { id: "dark", label: "Dark" },
+      ...BUILT_IN_THEMES,
+      ...customThemes,
+      ...environmentThemes,
+    ].filter((theme) => {
+      if (seen.has(theme.id)) return false;
+      seen.add(theme.id);
+      return true;
+    });
+  }, [customThemes, environmentThemes]);
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const {
@@ -2357,6 +2380,10 @@ export default function Sidebar(props: {
       setActiveSpaceId(null);
     }
   }, [activeSpaceId, projectSpaces, setActiveSpaceId]);
+  const activeSpaceTheme = projectSpaces.find((space) => space.id === activeSpaceId)?.theme;
+  useEffect(() => {
+    if (activeSpaceTheme) setTheme(activeSpaceTheme);
+  }, [activeSpaceTheme, setTheme]);
   const projectGroupsRef = useRef(projectGroups);
   projectGroupsRef.current = projectGroups;
   const serverConfigs = useAtomValue(environmentServerConfigsAtom);
@@ -2541,6 +2568,19 @@ export default function Sidebar(props: {
         projectSpaces: projectSpaces.map((entry) =>
           entry.id === space.id ? { ...entry, name } : entry,
         ),
+      });
+    },
+    [projectSpaces, updateClientSettings],
+  );
+  const setSpaceTheme = useCallback(
+    (space: ProjectSpace, theme: string | null) => {
+      void updateClientSettings({
+        projectSpaces: projectSpaces.map((entry) => {
+          if (entry.id !== space.id) return entry;
+          if (theme !== null) return { ...entry, theme };
+          const { theme: _theme, ...rest } = entry;
+          return rest;
+        }),
       });
     },
     [projectSpaces, updateClientSettings],
@@ -4393,6 +4433,16 @@ export default function Sidebar(props: {
           modelPickerOpen: isModelPickerOpen(),
         },
       });
+      const spaceJumpIndex = spaceJumpIndexFromCommand(command ?? "");
+      if (spaceJumpIndex !== null) {
+        const space = projectSpaces[spaceJumpIndex];
+        if (space) {
+          event.preventDefault();
+          event.stopPropagation();
+          selectSpace(space.id);
+        }
+        return;
+      }
       const navigateToThreadKey = (targetThreadKey: string | null) => {
         if (!targetThreadKey) return false;
         const targetThread = threadByKey.get(targetThreadKey);
@@ -4423,8 +4473,10 @@ export default function Sidebar(props: {
     keybindings,
     navigateToThread,
     orderedThreadKeys,
+    projectSpaces,
     routeTerminalOpen,
     routeThreadKey,
+    selectSpace,
     threadByKey,
   ]);
 
@@ -4493,12 +4545,14 @@ export default function Sidebar(props: {
         spaces={projectSpaces}
         projects={allProjectGroups}
         activeSpaceId={activeSpaceId}
+        themeOptions={spaceThemeOptions}
         expanded={props.spacesOverviewOpen}
         onExpandedChange={props.onSpacesOverviewOpenChange}
         onSelect={selectSpace}
         onAssign={assignProjectToSpace}
         onCreate={createSpace}
         onRename={renameSpace}
+        onThemeChange={setSpaceTheme}
         onDelete={deleteSpace}
       />
       <SidebarContent

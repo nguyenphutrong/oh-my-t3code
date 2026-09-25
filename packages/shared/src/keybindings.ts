@@ -5,6 +5,7 @@ import {
   MAX_KEYBINDINGS_COUNT,
   MAX_WHEN_EXPRESSION_DEPTH,
   MODEL_PICKER_JUMP_KEYBINDING_COMMANDS,
+  SPACE_JUMP_KEYBINDING_COMMANDS,
   type ResolvedKeybindingRule,
   type ResolvedKeybindingsConfig,
   THREAD_JUMP_KEYBINDING_COMMANDS,
@@ -72,6 +73,11 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
     key: `mod+${index + 1}`,
     command,
     when: "modelPickerOpen && isDesktop",
+  })),
+  ...SPACE_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
+    key: `ctrl+${index + 1}`,
+    command,
+    when: "!terminalFocus && !modelPickerOpen && isDesktop",
   })),
 ];
 

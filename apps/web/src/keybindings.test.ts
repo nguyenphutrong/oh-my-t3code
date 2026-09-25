@@ -17,6 +17,7 @@ import {
   isRichTextBoldShortcut,
   modelPickerJumpCommandForIndex,
   modelPickerJumpIndexFromCommand,
+  spaceJumpIndexFromCommand,
   isOpenFavoriteEditorShortcut,
   isTerminalClearShortcut,
   isTerminalCloseShortcut,
@@ -597,6 +598,21 @@ describe("thread navigation helpers", () => {
           context: { isDesktop: true },
         },
       ),
+    );
+  });
+});
+
+describe("space navigation helpers", () => {
+  it("maps space commands and resolves Ctrl+number ahead of thread jumps", () => {
+    assert.strictEqual(spaceJumpIndexFromCommand("space.jump.1"), 0);
+    assert.strictEqual(spaceJumpIndexFromCommand("space.jump.9"), 8);
+    assert.isNull(spaceJumpIndexFromCommand("thread.jump.1"));
+    assert.strictEqual(
+      resolveShortcutCommand(event({ key: "2", ctrlKey: true }), DEFAULT_RESOLVED_KEYBINDINGS, {
+        platform: "Linux",
+        context: { isDesktop: true },
+      }),
+      "space.jump.2",
     );
   });
 });

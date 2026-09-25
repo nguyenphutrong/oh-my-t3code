@@ -6,6 +6,7 @@ import {
   Layers3Icon,
   LayoutGridIcon,
   MoreHorizontalIcon,
+  PaletteIcon,
   PlusIcon,
   XIcon,
 } from "lucide-react";
@@ -21,6 +22,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "../ui/menu";
 import { ScrollArea } from "../ui/scroll-area";
@@ -31,12 +35,14 @@ export function SidebarSpaces(props: {
   spaces: ReadonlyArray<ProjectSpace>;
   projects: ReadonlyArray<SidebarProjectSnapshot>;
   activeSpaceId: string | null;
+  themeOptions: ReadonlyArray<{ id: string; label: string }>;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   onSelect: (spaceId: string | null) => void;
   onAssign: (project: SidebarProjectSnapshot, spaceId: string | null) => void;
   onCreate: (name: string) => void;
   onRename: (space: ProjectSpace, name: string) => void;
+  onThemeChange: (space: ProjectSpace, theme: string | null) => void;
   onDelete: (space: ProjectSpace) => void;
 }) {
   const [editor, setEditor] = useState<{ space: ProjectSpace | null; name: string } | null>(null);
@@ -250,6 +256,33 @@ export function SidebarSpaces(props: {
                             <MoreHorizontalIcon className="size-4" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                <PaletteIcon />
+                                Theme
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-52">
+                                <DropdownMenuItem onClick={() => props.onThemeChange(space, null)}>
+                                  <CheckIcon className={cn("size-4", space.theme && "opacity-0")} />
+                                  Current theme
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {props.themeOptions.map((theme) => (
+                                  <DropdownMenuItem
+                                    key={theme.id}
+                                    onClick={() => props.onThemeChange(space, theme.id)}
+                                  >
+                                    <CheckIcon
+                                      className={cn(
+                                        "size-4",
+                                        space.theme !== theme.id && "opacity-0",
+                                      )}
+                                    />
+                                    <span className="truncate">{theme.label}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
                             <DropdownMenuItem
                               onClick={() => setEditor({ space, name: space.name })}
                             >

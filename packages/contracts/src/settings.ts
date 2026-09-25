@@ -72,6 +72,7 @@ export const ProjectSpace = Schema.Struct({
   id: TrimmedNonEmptyString,
   name: TrimmedNonEmptyString,
   projectKeys: Schema.Array(TrimmedNonEmptyString),
+  theme: Schema.optionalKey(TrimmedNonEmptyString),
 });
 export type ProjectSpace = typeof ProjectSpace.Type;
 
