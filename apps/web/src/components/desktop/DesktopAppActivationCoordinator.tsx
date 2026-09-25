@@ -3,6 +3,7 @@ import type { DesktopAppActivationRequest } from "@t3tools/contracts";
 import { useEffect, useEffectEvent, useRef } from "react";
 
 import { handleDesktopAppActivationRequest } from "../../desktopAppActivation";
+import { useAssignProjectToActiveSpace } from "../../hooks/useAssignProjectToActiveSpace";
 import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
 import { findProjectByPath, inferProjectTitleFromPath } from "../../lib/projectPaths";
 import { newProjectId } from "../../lib/utils";
@@ -16,6 +17,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 export function DesktopAppActivationCoordinator() {
   const primaryEnvironment = usePrimaryEnvironment();
   const createProject = useAtomCommand(projectEnvironment.create, { reportFailure: false });
+  const assignProjectToActiveSpace = useAssignProjectToActiveSpace();
   const openThread = useNewThreadHandler();
   const queueRef = useRef(Promise.resolve());
   const activation = window.desktopBridge?.appActivation;
@@ -65,6 +67,7 @@ export function DesktopAppActivationCoordinator() {
           const error = squashAtomCommandFailure(result);
           throw error instanceof Error ? error : new Error("T3 Code could not add the project.");
         }
+        assignProjectToActiveSpace(environmentId, workspaceRoot);
         return projectId;
       },
       waitForProject: async (projectRef) => {

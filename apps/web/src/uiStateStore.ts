@@ -29,6 +29,7 @@ export interface PersistedUiState {
   defaultAdvertisedEndpointKey?: string | null;
   sidebarProjectScopeKey?: string | null;
   sidebarSpaceId?: string | null;
+  sidebarLastThreadKeyBySpaceId?: Record<string, string>;
   threadChangedFilesExpansionVersion?: number;
   threadChangedFilesExpandedById?: Record<string, Record<string, boolean>>;
   pullRequestMergeMethod?: string;
@@ -42,6 +43,7 @@ export interface UiProjectState {
   // cannot reset the filter.
   sidebarProjectScopeKey: string | null;
   sidebarSpaceId: string | null;
+  sidebarLastThreadKeyBySpaceId: Record<string, string>;
 }
 
 export interface UiThreadState {
@@ -65,6 +67,7 @@ const initialState: UiState = {
   projectOrder: [],
   sidebarProjectScopeKey: null,
   sidebarSpaceId: null,
+  sidebarLastThreadKeyBySpaceId: {},
   threadLastVisitedAtById: {},
   threadChangedFilesExpandedById: {},
   defaultAdvertisedEndpointKey: null,
@@ -120,6 +123,16 @@ function sanitizeTimestampRecord(value: unknown): Record<string, string> {
   );
 }
 
+function sanitizeStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object") return {};
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string] =>
+        entry[0].length > 0 && typeof entry[1] === "string" && entry[1].length > 0,
+    ),
+  );
+}
+
 function isPullRequestMergeMethod(value: unknown): value is PullRequestMergeMethod {
   return value === "merge" || value === "squash" || value === "rebase";
 }
@@ -159,6 +172,7 @@ export function parsePersistedState(parsed: PersistedUiState): UiState {
     defaultAdvertisedEndpointKey: sanitizeOptionalKey(parsed.defaultAdvertisedEndpointKey),
     sidebarProjectScopeKey: sanitizeOptionalKey(parsed.sidebarProjectScopeKey),
     sidebarSpaceId: sanitizeOptionalKey(parsed.sidebarSpaceId),
+    sidebarLastThreadKeyBySpaceId: sanitizeStringRecord(parsed.sidebarLastThreadKeyBySpaceId),
     pullRequestMergeMethod: isPullRequestMergeMethod(parsed.pullRequestMergeMethod)
       ? parsed.pullRequestMergeMethod
       : initialState.pullRequestMergeMethod,
@@ -234,6 +248,7 @@ export function persistState(state: UiState): void {
         defaultAdvertisedEndpointKey: state.defaultAdvertisedEndpointKey,
         sidebarProjectScopeKey: state.sidebarProjectScopeKey,
         sidebarSpaceId: state.sidebarSpaceId,
+        sidebarLastThreadKeyBySpaceId: state.sidebarLastThreadKeyBySpaceId,
         threadChangedFilesExpansionVersion: THREAD_CHANGED_FILES_EXPANSION_VERSION,
         threadChangedFilesExpandedById: state.threadChangedFilesExpandedById,
         pullRequestMergeMethod: state.pullRequestMergeMethod,
@@ -350,6 +365,23 @@ export function setSidebarSpaceId(state: UiState, spaceId: string | null): UiSta
   return state.sidebarSpaceId === nextId ? state : { ...state, sidebarSpaceId: nextId };
 }
 
+export function setSidebarLastThreadKey(
+  state: UiState,
+  spaceId: string,
+  threadKey: string,
+): UiState {
+  if (!spaceId || !threadKey || state.sidebarLastThreadKeyBySpaceId[spaceId] === threadKey) {
+    return state;
+  }
+  return {
+    ...state,
+    sidebarLastThreadKeyBySpaceId: {
+      ...state.sidebarLastThreadKeyBySpaceId,
+      [spaceId]: threadKey,
+    },
+  };
+}
+
 function setPullRequestMergeMethod(state: UiState, method: PullRequestMergeMethod): UiState {
   return state.pullRequestMergeMethod === method
     ? state
@@ -440,6 +472,7 @@ interface UiStateStore extends UiState {
   setDefaultAdvertisedEndpointKey: (key: string | null) => void;
   setSidebarProjectScopeKey: (projectKey: string | null) => void;
   setSidebarSpaceId: (spaceId: string | null) => void;
+  setSidebarLastThreadKey: (spaceId: string, threadKey: string) => void;
   setPullRequestMergeMethod: (method: PullRequestMergeMethod) => void;
   setProjectExpanded: (projectIds: string | readonly string[], expanded: boolean) => void;
   reorderProjects: (
@@ -462,6 +495,8 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
   setSidebarProjectScopeKey: (projectKey) =>
     set((state) => setSidebarProjectScopeKey(state, projectKey)),
   setSidebarSpaceId: (spaceId) => set((state) => setSidebarSpaceId(state, spaceId)),
+  setSidebarLastThreadKey: (spaceId, threadKey) =>
+    set((state) => setSidebarLastThreadKey(state, spaceId, threadKey)),
   setPullRequestMergeMethod: (method) => set((state) => setPullRequestMergeMethod(state, method)),
   setProjectExpanded: (projectIds, expanded) =>
     set((state) => setProjectExpanded(state, projectIds, expanded)),

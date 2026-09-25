@@ -2518,6 +2518,7 @@ function OpenCommandPaletteDialog(props: {
       }
       return;
     }
+    assignProjectToActiveSpace(addProjectCloneFlow.environmentId, destinationPath);
     setOpen(false);
     const projectRef = scopeProjectRef(addProjectCloneFlow.environmentId, projectId);
     // The create event usually lands before this call returns; give the shell

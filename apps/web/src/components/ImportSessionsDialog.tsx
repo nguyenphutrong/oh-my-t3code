@@ -3,7 +3,10 @@ import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 
-import { useAssignProjectToActiveSpace } from "../hooks/useAssignProjectToActiveSpace";
+import {
+  useAssignProjectToActiveSpace,
+  useAssignThreadToSpace,
+} from "../hooks/useAssignProjectToActiveSpace";
 import { newProjectId } from "../lib/utils";
 import { resolveOnboardingProjectId } from "../onboarding/projectImport.logic";
 import { agentSessionImport, agentSessionScan } from "../state/agentSessions";
@@ -77,11 +80,13 @@ export function ImportSessionsDialog({ onClose }: { readonly onClose: () => void
   const createProject = useAtomCommand(projectEnvironment.create, { reportFailure: false });
   const importSession = useAtomCommand(agentSessionImport, { reportFailure: false });
   const assignProjectToActiveSpace = useAssignProjectToActiveSpace();
+  const assignThreadToSpace = useAssignThreadToSpace();
 
   const submit = async () => {
     if (pending.current || candidate === null || codexSessionId === null || environmentId === null)
       return;
     pending.current = true;
+    const requestedSpaceId = useUiStateStore.getState().sidebarSpaceId;
     setIsImporting(true);
     setError("");
     try {
@@ -120,7 +125,7 @@ export function ImportSessionsDialog({ onClose }: { readonly onClose: () => void
         );
         return;
       }
-      assignProjectToActiveSpace(environmentId, candidate.path);
+      assignThreadToSpace(requestedSpaceId, environmentId, imported.value.threadId);
       const threadRef = scopeThreadRef(environmentId, imported.value.threadId);
       if (!(await waitForStartedServerThread(threadRef, 10_000))) {
         setError(

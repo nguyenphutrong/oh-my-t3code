@@ -112,12 +112,45 @@ export function assignProjectKeysToSpace(
   }));
 }
 
+export function threadSpaceForKey(
+  spaces: ReadonlyArray<ProjectSpace>,
+  threadKey: string,
+): ProjectSpace | null {
+  return spaces.find((space) => space.threadKeys?.includes(threadKey)) ?? null;
+}
+
+export function assignThreadKeysToSpace(
+  spaces: ReadonlyArray<ProjectSpace>,
+  spaceId: string | null,
+  threadKeys: ReadonlyArray<string>,
+): ProjectSpace[] {
+  const moved = new Set(threadKeys);
+  const uniqueThreadKeys = [...moved];
+  return spaces.map((space) => ({
+    ...space,
+    threadKeys: [
+      ...(space.threadKeys ?? []).filter((key) => !moved.has(key)),
+      ...(space.id === spaceId
+        ? uniqueThreadKeys.filter((key) => !space.threadKeys?.includes(key))
+        : []),
+    ],
+  }));
+}
+
 export function projectKeysInSpace(
   spaces: ReadonlyArray<ProjectSpace>,
   spaceId: string | null,
 ): ReadonlySet<string> | null {
   if (spaceId === null) return null;
   return new Set(spaces.find((space) => space.id === spaceId)?.projectKeys ?? []);
+}
+
+export function threadKeysInSpace(
+  spaces: ReadonlyArray<ProjectSpace>,
+  spaceId: string | null,
+): ReadonlySet<string> | null {
+  if (spaceId === null) return null;
+  return new Set(spaces.find((space) => space.id === spaceId)?.threadKeys ?? []);
 }
 
 export function resolveProjectGroupingMode(

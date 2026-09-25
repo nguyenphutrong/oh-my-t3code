@@ -33,7 +33,7 @@ import { readT3ProjectFile } from "../lib/t3ProjectFileDefaults";
 import { environmentServerConfigsAtom } from "../state/server";
 import { resolveThreadRouteTarget } from "../threadRoutes";
 import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore";
-import { useAssignProjectToActiveSpace } from "./useAssignProjectToActiveSpace";
+import { useAssignThreadToSpace } from "./useAssignProjectToActiveSpace";
 import { useClientSettings } from "./useSettings";
 
 interface NewThreadWorkspaceOptions {
@@ -58,7 +58,7 @@ function pickExplicitWorkspaceOptions(options: NewThreadWorkspaceOptions | undef
 export function useNewThreadHandler() {
   const environmentServerConfigs = useAtomValue(environmentServerConfigsAtom);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
-  const assignProjectToActiveSpace = useAssignProjectToActiveSpace();
+  const assignThreadToSpace = useAssignThreadToSpace();
   const router = useRouter();
   const getCurrentRouteTarget = useCallback(() => {
     const currentRouteParams = router.state.matches[router.state.matches.length - 1]?.params ?? {};
@@ -79,6 +79,7 @@ export function useNewThreadHandler() {
       // prepared checkout, a task to write — addresses that one rather than looking the project
       // up again and finding whichever draft it happens to hold.
     ): Promise<{ draftId: DraftId; threadId: ThreadId } | null> => {
+      const requestedSpaceId = useUiStateStore.getState().sidebarSpaceId;
       const projects = readProjects();
       const targetServerSettings =
         environmentServerConfigs.get(projectRef.environmentId)?.settings ?? DEFAULT_SERVER_SETTINGS;
@@ -130,9 +131,6 @@ export function useNewThreadHandler() {
           candidate.id === projectRef.projectId &&
           candidate.environmentId === projectRef.environmentId,
       );
-      if (project) {
-        assignProjectToActiveSpace(project.environmentId, project.workspaceRoot);
-      }
       // The resolver applies project overrides and, until the server has
       // folded them, the aggregate's own legacy fields.
       const projectSettings = resolveProjectSettings(
@@ -312,6 +310,11 @@ export function useNewThreadHandler() {
             draftId: emptyStoredDraftThread.draftId,
             threadId: emptyStoredDraftThread.threadId,
           };
+          assignThreadToSpace(
+            requestedSpaceId,
+            emptyStoredDraftThread.environmentId,
+            opened.threadId,
+          );
           // Re-read the route: the snapshot from before the await is stale
           // once a concurrent invocation's navigation lands, and navigating
           // again would push a duplicate history entry.
@@ -355,6 +358,11 @@ export function useNewThreadHandler() {
           interactionMode: latestActiveDraftThread.interactionMode,
           ...pickExplicitWorkspaceOptions(options),
         });
+        assignThreadToSpace(
+          requestedSpaceId,
+          latestActiveDraftThread.environmentId,
+          latestActiveDraftThread.threadId,
+        );
         return Promise.resolve({
           draftId: currentRouteTarget.draftId,
           threadId: latestActiveDraftThread.threadId,
@@ -398,6 +406,7 @@ export function useNewThreadHandler() {
             interactionMode: racedDraft.interactionMode,
             ...pickExplicitWorkspaceOptions(options),
           });
+          assignThreadToSpace(requestedSpaceId, racedDraft.environmentId, racedDraft.threadId);
           await router.navigate({
             to: "/draft/$draftId",
             params: { draftId: racedDraft.draftId },
@@ -427,6 +436,7 @@ export function useNewThreadHandler() {
           // state. The project default wins when both are present.
           setModelSelection(draftId, modelSelectionOverride, { replaceOptions: true });
         }
+        assignThreadToSpace(requestedSpaceId, projectRef.environmentId, threadId);
         await router.navigate({
           to: "/draft/$draftId",
           params: { draftId },
@@ -436,7 +446,7 @@ export function useNewThreadHandler() {
       })();
     },
     [
-      assignProjectToActiveSpace,
+      assignThreadToSpace,
       environmentServerConfigs,
       getCurrentRouteTarget,
       projectGroupingSettings,

@@ -28,7 +28,12 @@ import {
   type EnvironmentThreadSearchMatch,
 } from "@t3tools/client-runtime/state/thread-search";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
-import { assignProjectKeysToSpace } from "@t3tools/client-runtime/state/project-grouping";
+import {
+  assignProjectKeysToSpace,
+  assignThreadKeysToSpace,
+  threadKeysInSpace,
+  threadSpaceForKey,
+} from "@t3tools/client-runtime/state/project-grouping";
 import {
   parseScopedThreadKey,
   scopeProjectRef,
@@ -833,6 +838,12 @@ const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
   projectByKey: ReadonlyMap<string, EnvironmentProject>;
   projectDisplayNameByKey: ReadonlyMap<string, string>;
   scopedProjectKeys: ReadonlySet<string> | null;
+  isThreadInActiveSpace: (thread: {
+    environmentId: string;
+    projectId: string;
+    id?: string;
+    threadId?: string;
+  }) => boolean;
   routeDraftId: string | null;
   onNavigateToDraft: (draftId: DraftId) => void;
 }) {
@@ -878,6 +889,7 @@ const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
       ) {
         continue;
       }
+      if (!props.isThreadInActiveSpace(session)) continue;
       if (draftKey === props.routeDraftId) {
         // Open draft: render the frozen entry snapshot, or nothing for a
         // draft that has never been left. Gated on the LIVE session above so
@@ -900,6 +912,7 @@ const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
     draftsByThreadKey,
     frozenActive,
     props.routeDraftId,
+    props.isThreadInActiveSpace,
     props.scopedProjectKeys,
   ]);
   const handleDiscard = useCallback(
@@ -2167,6 +2180,8 @@ export default function Sidebar(props: {
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const activeSpaceId = useUiStateStore((store) => store.sidebarSpaceId);
   const setActiveSpaceId = useUiStateStore((store) => store.setSidebarSpaceId);
+  const lastThreadKeyBySpaceId = useUiStateStore((store) => store.sidebarLastThreadKeyBySpaceId);
+  const setSidebarLastThreadKey = useUiStateStore((store) => store.setSidebarLastThreadKey);
   const threads = useThreadShells();
   const router = useRouter();
   const { isMobile, setOpenMobile } = useSidebar();
@@ -2357,17 +2372,105 @@ export default function Sidebar(props: {
     () => projectKeysInSpace(projectSpaces, activeSpaceId),
     [activeSpaceId, projectSpaces],
   );
+  const activeSpaceThreadKeys = useMemo(
+    () => threadKeysInSpace(projectSpaces, activeSpaceId),
+    [activeSpaceId, projectSpaces],
+  );
+  const physicalProjectKeyByRef = useMemo(
+    () =>
+      new Map<string, string>(
+        allProjectGroups.flatMap((group) =>
+          group.memberProjects.map(
+            (project) =>
+              [`${project.environmentId}:${project.id}`, project.physicalProjectKey] as const,
+          ),
+        ),
+      ),
+    [allProjectGroups],
+  );
+  const activeSpaceThreadProjectRefs = useMemo(() => {
+    if (activeSpaceThreadKeys === null) return null;
+    return new Set(
+      threads.flatMap((thread) =>
+        activeSpaceThreadKeys.has(scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)))
+          ? [`${thread.environmentId}:${thread.projectId}`]
+          : [],
+      ),
+    );
+  }, [activeSpaceThreadKeys, threads]);
   const projectGroups = useMemo(
     () =>
       activeSpaceProjectKeys === null
         ? allProjectGroups
         : allProjectGroups.filter((group) =>
-            group.memberProjects.some((project) =>
-              activeSpaceProjectKeys.has(project.physicalProjectKey),
+            group.memberProjects.some(
+              (project) =>
+                activeSpaceProjectKeys.has(project.physicalProjectKey) ||
+                activeSpaceThreadProjectRefs?.has(`${project.environmentId}:${project.id}`),
             ),
           ),
-    [activeSpaceProjectKeys, allProjectGroups],
+    [activeSpaceProjectKeys, activeSpaceThreadProjectRefs, allProjectGroups],
   );
+  const isThreadInSpace = useCallback(
+    (
+      thread: {
+        environmentId: string;
+        projectId: string;
+        id?: string;
+        threadId?: string;
+      },
+      spaceId: string | null,
+    ) => {
+      if (spaceId === null) return true;
+      const threadId = thread.threadId ?? thread.id;
+      if (!threadId) return false;
+      const threadKey = `${thread.environmentId}:${threadId}`;
+      const explicitSpace = threadSpaceForKey(projectSpaces, threadKey);
+      if (explicitSpace) return explicitSpace.id === spaceId;
+      const physicalProjectKey = physicalProjectKeyByRef.get(
+        `${thread.environmentId}:${thread.projectId}`,
+      );
+      const space = projectSpaces.find((candidate) => candidate.id === spaceId);
+      return (
+        physicalProjectKey !== undefined && Boolean(space?.projectKeys.includes(physicalProjectKey))
+      );
+    },
+    [physicalProjectKeyByRef, projectSpaces],
+  );
+  const isThreadInActiveSpace = useCallback(
+    (thread: { environmentId: string; projectId: string; id?: string; threadId?: string }) =>
+      isThreadInSpace(thread, activeSpaceId),
+    [activeSpaceId, isThreadInSpace],
+  );
+  const routeProjectId =
+    routeTarget?.kind === "draft"
+      ? routeDraftThread?.projectId
+      : threads.find(
+          (thread) =>
+            thread.environmentId === routeThreadRef?.environmentId &&
+            thread.id === routeThreadRef.threadId,
+        )?.projectId;
+  useEffect(() => {
+    if (
+      activeSpaceId === null ||
+      routeThreadRef === null ||
+      routeProjectId === undefined ||
+      !isThreadInActiveSpace({
+        environmentId: routeThreadRef.environmentId,
+        projectId: routeProjectId,
+        threadId: routeThreadRef.threadId,
+      })
+    ) {
+      return;
+    }
+    setSidebarLastThreadKey(activeSpaceId, scopedThreadKey(routeThreadRef));
+  }, [
+    activeSpaceId,
+    isThreadInActiveSpace,
+    routeProjectId,
+    routeThreadRef,
+    setSidebarLastThreadKey,
+  ]);
   useEffect(() => {
     if (activeSpaceId !== null && !projectSpaces.some((space) => space.id === activeSpaceId)) {
       setActiveSpaceId(null);
@@ -2491,16 +2594,8 @@ export default function Sidebar(props: {
               (projectRef) => `${projectRef.environmentId}:${projectRef.projectId}`,
             ),
           )
-        : activeSpaceProjectKeys === null
-          ? null
-          : new Set(
-              projectGroups.flatMap((group) =>
-                group.memberProjectRefs.map(
-                  (projectRef) => `${projectRef.environmentId}:${projectRef.projectId}`,
-                ),
-              ),
-            ),
-    [activeSpaceProjectKeys, projectGroups, scopedProjectGroup],
+        : null,
+    [scopedProjectGroup],
   );
   // A persisted scope whose project is gone falls back to all projects, but
   // only after every catalog environment has a live project snapshot. Cached
@@ -2533,6 +2628,7 @@ export default function Sidebar(props: {
       ) {
         continue;
       }
+      if (!isThreadInActiveSpace(session)) continue;
       count += 1;
     }
     return count;
@@ -2548,12 +2644,20 @@ export default function Sidebar(props: {
       const id = randomUUID();
       clearSelection();
       void updateClientSettings({
-        projectSpaces: [...projectSpaces, { id, name, projectKeys: [] }],
+        projectSpaces: [...projectSpaces, { id, name, projectKeys: [], threadKeys: [] }],
       });
       setProjectScopeKey(null);
       setActiveSpaceId(id);
+      void router.navigate({ to: "/" });
     },
-    [clearSelection, projectSpaces, setActiveSpaceId, setProjectScopeKey, updateClientSettings],
+    [
+      clearSelection,
+      projectSpaces,
+      router,
+      setActiveSpaceId,
+      setProjectScopeKey,
+      updateClientSettings,
+    ],
   );
   const renameSpace = useCallback(
     (space: ProjectSpace, name: string) => {
@@ -2592,25 +2696,98 @@ export default function Sidebar(props: {
     },
     [activeSpaceId, clearSelection, projectSpaces, setActiveSpaceId, updateClientSettings],
   );
+  const navigateToSpaceThread = useCallback(
+    (threadKey: string) => {
+      const threadRef = parseScopedThreadKey(threadKey);
+      if (!threadRef) return false;
+      const draftStore = useComposerDraftStore.getState();
+      const draftSession = draftStore.getDraftSessionByRef(threadRef);
+      const draftId = draftStore.getDraftIdByRef(threadRef);
+      if (draftSession?.promotedTo == null && draftId) {
+        void router.navigate({ to: "/draft/$draftId", params: { draftId } });
+        return true;
+      }
+      if (readThreadShell(threadRef) === null) return false;
+      void router.navigate({
+        to: "/$environmentId/$threadId",
+        params: buildThreadRouteParams(threadRef),
+      });
+      return true;
+    },
+    [router],
+  );
   const selectSpace = useCallback(
     (spaceId: string | null) => {
       clearSelection();
       setProjectScopeKey(null);
       setActiveSpaceId(spaceId);
+      if (spaceId === null || spaceId === activeSpaceId) return;
+
+      const findThreadByKey = (threadKey: string) => {
+        const serverThread = threads.find(
+          (thread) =>
+            scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)) === threadKey,
+        );
+        if (serverThread) return serverThread;
+        const threadRef = parseScopedThreadKey(threadKey);
+        return threadRef ? useComposerDraftStore.getState().getDraftSessionByRef(threadRef) : null;
+      };
+      const lastThreadKey = lastThreadKeyBySpaceId[spaceId];
+      const lastThread = lastThreadKey ? findThreadByKey(lastThreadKey) : null;
+      if (
+        lastThread &&
+        isThreadInSpace(lastThread, spaceId) &&
+        navigateToSpaceThread(lastThreadKey!)
+      ) {
+        return;
+      }
+
+      const fallback = sortThreadsForSidebar(
+        threads.filter((thread) => thread.archivedAt === null && isThreadInSpace(thread, spaceId)),
+      )[0];
+      if (
+        fallback &&
+        navigateToSpaceThread(scopedThreadKey(scopeThreadRef(fallback.environmentId, fallback.id)))
+      ) {
+        return;
+      }
+      void router.navigate({ to: "/" });
     },
-    [clearSelection, setActiveSpaceId, setProjectScopeKey],
+    [
+      activeSpaceId,
+      clearSelection,
+      isThreadInSpace,
+      lastThreadKeyBySpaceId,
+      navigateToSpaceThread,
+      router,
+      setActiveSpaceId,
+      setProjectScopeKey,
+      threads,
+    ],
   );
   const assignProjectToSpace = useCallback(
     (project: SidebarProjectSnapshot, spaceId: string | null) => {
+      const projectRefs = new Set(
+        project.memberProjectRefs.map((ref) => `${ref.environmentId}:${ref.projectId}`),
+      );
+      const threadKeys = [
+        ...threads
+          .filter((thread) => projectRefs.has(`${thread.environmentId}:${thread.projectId}`))
+          .map((thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))),
+        ...Object.values(useComposerDraftStore.getState().draftThreadsByThreadKey)
+          .filter((thread) => projectRefs.has(`${thread.environmentId}:${thread.projectId}`))
+          .map((thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.threadId))),
+      ];
+      const withProject = assignProjectKeysToSpace(
+        projectSpaces,
+        spaceId,
+        project.memberProjects.map((member) => member.physicalProjectKey),
+      );
       void updateClientSettings({
-        projectSpaces: assignProjectKeysToSpace(
-          projectSpaces,
-          spaceId,
-          project.memberProjects.map((member) => member.physicalProjectKey),
-        ),
+        projectSpaces: assignThreadKeysToSpace(withProject, spaceId, threadKeys),
       });
     },
-    [projectSpaces, updateClientSettings],
+    [projectSpaces, threads, updateClientSettings],
   );
 
   const openProjectSettings = useCallback(
@@ -2680,6 +2857,7 @@ export default function Sidebar(props: {
     const visible = threads.filter(
       (thread) =>
         thread.archivedAt === null &&
+        isThreadInActiveSpace(thread) &&
         (scopedProjectKeys === null ||
           scopedProjectKeys.has(`${thread.environmentId}:${thread.projectId}`)),
     );
@@ -2767,7 +2945,15 @@ export default function Sidebar(props: {
       settledThreads: sortSettledThreadsForSidebar(settled),
       snoozeNow: preciseNow,
     };
-  }, [nowMinute, optimisticDrop, scopedProjectKeys, serverConfigs, snoozeWakeTick, threads]);
+  }, [
+    isThreadInActiveSpace,
+    nowMinute,
+    optimisticDrop,
+    scopedProjectKeys,
+    serverConfigs,
+    snoozeWakeTick,
+    threads,
+  ]);
 
   const threadSearchInputRef = useRef<HTMLInputElement>(null);
   const [threadSearchQuery, setThreadSearchQuery] = useState("");
@@ -4947,6 +5133,7 @@ export default function Sidebar(props: {
                           projectByKey={projectByKey}
                           projectDisplayNameByKey={projectDisplayNameByKey}
                           scopedProjectKeys={scopedProjectKeys}
+                          isThreadInActiveSpace={isThreadInActiveSpace}
                           routeDraftId={routeDraftIdForRows}
                           onNavigateToDraft={navigateToDraft}
                         />,

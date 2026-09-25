@@ -5,10 +5,13 @@ import type { EnvironmentProject } from "./models.ts";
 import { chooseLoadBalancedEnvironment } from "../load-balancing.ts";
 import {
   assignProjectKeysToSpace,
+  assignThreadKeysToSpace,
   buildProjectGroups,
   derivePhysicalProjectKey,
   projectKeysInSpace,
   projectSpaceForKeys,
+  threadKeysInSpace,
+  threadSpaceForKey,
   type ProjectGroupingSettings,
 } from "./projectGrouping.ts";
 
@@ -40,6 +43,20 @@ describe("project spaces", () => {
   it("returns projects to the unassigned pool", () => {
     const unassigned = assignProjectKeysToSpace(spaces, null, ["project-a"]);
     expect(projectSpaceForKeys(unassigned, ["project-a"])).toBeNull();
+  });
+
+  it("moves one thread without moving its project or sibling threads", () => {
+    const withThreads = [
+      { ...spaces[0]!, threadKeys: ["thread-a", "thread-b"] },
+      { ...spaces[1]!, threadKeys: [] },
+    ];
+
+    const moved = assignThreadKeysToSpace(withThreads, "personal", ["thread-a"]);
+
+    expect(threadSpaceForKey(moved, "thread-a")?.id).toBe("personal");
+    expect(threadSpaceForKey(moved, "thread-b")?.id).toBe("work");
+    expect(projectSpaceForKeys(moved, ["project-a"])?.id).toBe("work");
+    expect(threadKeysInSpace(moved, "personal")).toEqual(new Set(["thread-a"]));
   });
 });
 

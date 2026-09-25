@@ -14,6 +14,7 @@ import {
   setDefaultAdvertisedEndpointKey,
   setProjectExpanded,
   setSidebarProjectScopeKey,
+  setSidebarLastThreadKey,
   setThreadChangedFilesExpanded,
   type UiState,
 } from "./uiStateStore";
@@ -24,6 +25,7 @@ function makeUiState(overrides: Partial<UiState> = {}): UiState {
     projectOrder: [],
     sidebarProjectScopeKey: null,
     sidebarSpaceId: null,
+    sidebarLastThreadKeyBySpaceId: {},
     threadLastVisitedAtById: {},
     threadChangedFilesExpandedById: {},
     defaultAdvertisedEndpointKey: null,
@@ -33,6 +35,18 @@ function makeUiState(overrides: Partial<UiState> = {}): UiState {
 }
 
 describe("uiStateStore pure functions", () => {
+  it("remembers the last thread opened in each space", () => {
+    const initialState = makeUiState();
+    const work = setSidebarLastThreadKey(initialState, "work", "environment:thread-1");
+    const personal = setSidebarLastThreadKey(work, "personal", "environment:thread-2");
+
+    expect(personal.sidebarLastThreadKeyBySpaceId).toEqual({
+      work: "environment:thread-1",
+      personal: "environment:thread-2",
+    });
+    expect(setSidebarLastThreadKey(personal, "work", "environment:thread-1")).toBe(personal);
+  });
+
   it("stores server timestamps without moving visit state backwards", () => {
     const threadId = ThreadId.make("thread-1");
     const initialState = makeUiState();
@@ -204,6 +218,7 @@ describe("parsePersistedState", () => {
       defaultAdvertisedEndpointKey: "desktop-core:lan:http",
       sidebarProjectScopeKey: null,
       sidebarSpaceId: null,
+      sidebarLastThreadKeyBySpaceId: {},
       pullRequestMergeMethod: "merge",
       threadChangedFilesExpandedById: {
         "environment:thread-1": {
@@ -327,6 +342,7 @@ describe("uiStateStore persistence", () => {
       defaultAdvertisedEndpointKey: "desktop-core:lan:http",
       sidebarProjectScopeKey: null,
       sidebarSpaceId: null,
+      sidebarLastThreadKeyBySpaceId: {},
       threadChangedFilesExpansionVersion: 2,
       threadChangedFilesExpandedById: {
         "environment:thread-1": {
