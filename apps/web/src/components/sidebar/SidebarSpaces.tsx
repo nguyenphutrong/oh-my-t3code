@@ -264,7 +264,7 @@ export function SidebarSpaces(props: {
                               <DropdownMenuSubContent className="w-52">
                                 <DropdownMenuItem onClick={() => props.onThemeChange(space, null)}>
                                   <CheckIcon className={cn("size-4", space.theme && "opacity-0")} />
-                                  Current theme
+                                  Default theme
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {props.themeOptions.map((theme) => (

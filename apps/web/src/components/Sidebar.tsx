@@ -2178,17 +2178,10 @@ export default function Sidebar(props: {
   const updateClientSettings = useUpdateClientSettings();
   const customThemes = useCustomThemes();
   const environmentThemes = useEnvironmentThemeDefinitions();
-  const { setTheme } = useTheme();
+  const { setThemeOverride } = useTheme();
   const spaceThemeOptions = useMemo(() => {
     const seen = new Set<string>();
-    return [
-      { id: "system", label: "System" },
-      { id: "light", label: "Light" },
-      { id: "dark", label: "Dark" },
-      ...BUILT_IN_THEMES,
-      ...customThemes,
-      ...environmentThemes,
-    ].filter((theme) => {
+    return [...BUILT_IN_THEMES, ...customThemes, ...environmentThemes].filter((theme) => {
       if (seen.has(theme.id)) return false;
       seen.add(theme.id);
       return true;
@@ -2382,8 +2375,9 @@ export default function Sidebar(props: {
   }, [activeSpaceId, projectSpaces, setActiveSpaceId]);
   const activeSpaceTheme = projectSpaces.find((space) => space.id === activeSpaceId)?.theme;
   useEffect(() => {
-    if (activeSpaceTheme) setTheme(activeSpaceTheme);
-  }, [activeSpaceTheme, setTheme]);
+    setThemeOverride(activeSpaceTheme ?? null);
+  }, [activeSpaceTheme, setThemeOverride]);
+  useEffect(() => () => setThemeOverride(null), [setThemeOverride]);
   const projectGroupsRef = useRef(projectGroups);
   projectGroupsRef.current = projectGroups;
   const serverConfigs = useAtomValue(environmentServerConfigsAtom);

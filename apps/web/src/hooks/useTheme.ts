@@ -138,6 +138,11 @@ let snapshotStale = true;
 let lastDesktopTheme: "light" | "dark" | "system" | null = null;
 let lastAppliedTheme: Omit<ThemeSnapshot, "resolvedTheme"> | null = null;
 let themeStorageReadFailure: ThemeStorageError | null = null;
+let themeOverride: Theme | null = null;
+
+function getEffectiveTheme(): Theme {
+  return themeOverride ?? getStored();
+}
 
 function emitChange() {
   snapshotStale = true;
@@ -326,10 +331,10 @@ function applyTheme(theme: Theme, { suppressTransitions = false, preservePreview
   if (preservePreview && document.documentElement.dataset?.themeId === THEME_PREVIEW_ID) {
     return;
   }
-  const appearanceMode = readAppearanceModePreference(theme);
+  const appearanceMode = readAppearanceModePreference(getStored());
   const followSystem = appearanceMode === "system";
   const systemDark = followSystem ? getSystemDark() : false;
-  const themeHalves = readStoredThemeHalves();
+  const themeHalves = themeOverride === null ? readStoredThemeHalves() : null;
   if (
     lastAppliedTheme?.theme === theme &&
     lastAppliedTheme.systemDark === systemDark &&
@@ -420,11 +425,12 @@ function getSnapshot(): ThemeSnapshot {
   // change was signalled; useTheme consumers call this on every render.
   if (!snapshotStale && lastSnapshot) return lastSnapshot;
   snapshotStale = false;
-  const theme = getStored();
-  const appearanceMode = readAppearanceModePreference(theme);
+  const storedTheme = getStored();
+  const theme = themeOverride ?? storedTheme;
+  const appearanceMode = readAppearanceModePreference(storedTheme);
   const followSystem = appearanceMode === "system";
   const systemDark = followSystem ? getSystemDark() : false;
-  const themeHalves = readStoredThemeHalves();
+  const themeHalves = themeOverride === null ? readStoredThemeHalves() : null;
 
   const resolvedTheme = resolveThemeAppearance(
     theme,
@@ -456,7 +462,7 @@ function getServerSnapshot() {
 function handleSystemAppearanceChange() {
   const storedTheme = getStored();
   if (readAppearanceModePreference(storedTheme) === "system") {
-    applyTheme(storedTheme, { suppressTransitions: true });
+    applyTheme(getEffectiveTheme(), { suppressTransitions: true });
   }
   emitChange();
 }
@@ -464,19 +470,19 @@ function handleSystemAppearanceChange() {
 function handleStorageChange(e: StorageEvent) {
   if (e.key === STORAGE_KEY) {
     themeStorageReadFailure = null;
-    applyTheme(getStored(), { suppressTransitions: true });
+    applyTheme(getEffectiveTheme(), { suppressTransitions: true });
     emitChange();
   } else if (e.key === THEME_FOLLOW_SYSTEM_STORAGE_KEY) {
-    applyTheme(getStored(), { suppressTransitions: true });
+    applyTheme(getEffectiveTheme(), { suppressTransitions: true });
     emitChange();
   } else if (e.key === THEME_APPEARANCE_MODE_STORAGE_KEY || e.key === THEME_HALVES_STORAGE_KEY) {
-    applyTheme(getStored(), { suppressTransitions: true });
+    applyTheme(getEffectiveTheme(), { suppressTransitions: true });
     emitChange();
   } else if (e.key === CUSTOM_THEMES_STORAGE_KEY || e.key === null) {
     if (e.key === null) themeStorageReadFailure = null;
     invalidateCustomThemes();
     lastAppliedTheme = null;
-    applyTheme(getStored(), { suppressTransitions: true });
+    applyTheme(getEffectiveTheme(), { suppressTransitions: true });
     emitChange();
   }
 }
@@ -553,7 +559,7 @@ export function useTheme() {
       });
       return false;
     }
-    applyTheme(next, { suppressTransitions: true });
+    applyTheme(getEffectiveTheme(), { suppressTransitions: true });
     emitChange();
     return true;
   }, []);
@@ -578,7 +584,7 @@ export function useTheme() {
       return false;
     }
     themeStorageReadFailure = null;
-    applyTheme(getStored(), { suppressTransitions: true });
+    applyTheme(getEffectiveTheme(), { suppressTransitions: true });
     emitChange();
     return true;
   }, []);
@@ -622,7 +628,7 @@ export function useTheme() {
         });
         return false;
       }
-      applyTheme(getStored(), { suppressTransitions: true });
+      applyTheme(getEffectiveTheme(), { suppressTransitions: true });
       emitChange();
       return true;
     },
@@ -646,7 +652,7 @@ export function useTheme() {
       });
       return false;
     }
-    applyTheme(getStored(), { suppressTransitions: true });
+    applyTheme(getEffectiveTheme(), { suppressTransitions: true });
     emitChange();
     return true;
   }, []);
@@ -654,7 +660,15 @@ export function useTheme() {
   const refreshTheme = useCallback(({ preservePreview = false } = {}) => {
     if (typeof window === "undefined") return;
     lastAppliedTheme = null;
-    applyTheme(getStored(), { suppressTransitions: true, preservePreview });
+    applyTheme(getEffectiveTheme(), { suppressTransitions: true, preservePreview });
+    emitChange();
+  }, []);
+
+  const setThemeOverride = useCallback((next: Theme | null) => {
+    if (themeOverride === next) return;
+    themeOverride = next;
+    lastAppliedTheme = null;
+    applyTheme(getEffectiveTheme(), { suppressTransitions: true });
     emitChange();
   }, []);
 
@@ -666,6 +680,7 @@ export function useTheme() {
   return {
     theme,
     setTheme,
+    setThemeOverride,
     setAppearanceMode,
     setFollowSystem,
     setThemeHalf,

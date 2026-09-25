@@ -27,6 +27,32 @@ afterEach(() => {
 });
 
 describe("theme failure handling", () => {
+  it("applies a theme override without replacing the stored preference", async () => {
+    const storage = createStorage();
+    storage.setItem("t3code:theme", "t3-chat");
+    storage.setItem("t3code:theme-halves", JSON.stringify({ light: "light", dark: "dark" }));
+    vi.doMock("react", () => ({
+      useCallback: <A>(callback: A) => callback,
+      useEffect: () => undefined,
+      useSyncExternalStore: (
+        _subscribe: (listener: () => void) => () => void,
+        getSnapshot: () => unknown,
+      ) => getSnapshot(),
+    }));
+    vi.stubGlobal("window", {
+      localStorage: storage,
+      matchMedia: () => ({ matches: false }),
+    });
+
+    const { readThemePreference, useTheme } = await import("./useTheme");
+    useTheme().setThemeOverride("dark");
+
+    expect(readThemePreference()).toBe("t3-chat");
+    expect(storage.getItem("t3code:theme-halves")).toBe(
+      JSON.stringify({ light: "light", dark: "dark" }),
+    );
+  });
+
   it("preserves exact storage causes and operation context", async () => {
     const readCause = new Error("storage read blocked");
     const writeCause = new Error("storage quota exceeded");
