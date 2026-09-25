@@ -3,6 +3,7 @@ import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 
+import { useAssignProjectToActiveSpace } from "../hooks/useAssignProjectToActiveSpace";
 import { newProjectId } from "../lib/utils";
 import { resolveOnboardingProjectId } from "../onboarding/projectImport.logic";
 import { agentSessionImport, agentSessionScan } from "../state/agentSessions";
@@ -75,6 +76,7 @@ export function ImportSessionsDialog({ onClose }: { readonly onClose: () => void
       : null;
   const createProject = useAtomCommand(projectEnvironment.create, { reportFailure: false });
   const importSession = useAtomCommand(agentSessionImport, { reportFailure: false });
+  const assignProjectToActiveSpace = useAssignProjectToActiveSpace();
 
   const submit = async () => {
     if (pending.current || candidate === null || codexSessionId === null || environmentId === null)
@@ -101,6 +103,7 @@ export function ImportSessionsDialog({ onClose }: { readonly onClose: () => void
           setError("Could not create the project. Try importing again.");
           return;
         }
+        assignProjectToActiveSpace(environmentId, candidate.path);
       }
       const imported = await importSession({
         environmentId,
@@ -117,6 +120,7 @@ export function ImportSessionsDialog({ onClose }: { readonly onClose: () => void
         );
         return;
       }
+      assignProjectToActiveSpace(environmentId, candidate.path);
       const threadRef = scopeThreadRef(environmentId, imported.value.threadId);
       if (!(await waitForStartedServerThread(threadRef, 10_000))) {
         setError(

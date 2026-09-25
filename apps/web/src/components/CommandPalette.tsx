@@ -75,6 +75,7 @@ import { ImportSessionsDialog } from "./ImportSessionsDialog";
 import { isDesktopLocalConnectionTarget } from "../connection/desktopLocal";
 import { useDesktopLocalBootstraps } from "../connection/useDesktopLocalBootstraps";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
+import { useAssignProjectToActiveSpace } from "../hooks/useAssignProjectToActiveSpace";
 import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl";
 import { writeTextToClipboard } from "../hooks/useCopyToClipboard";
 import { useClientSettings } from "../hooks/useSettings";
@@ -730,6 +731,7 @@ function OpenCommandPaletteDialog(props: {
   const availableSettingsSearchItems = useAvailableSettingsSearchItems();
   const { activeDraftThread, activeThread, defaultProjectRef, handleNewThread } =
     useHandleNewThread();
+  const assignProjectToActiveSpace = useAssignProjectToActiveSpace();
   const projects = useProjects();
   const referenceThreadRef =
     pathname === "/pull-requests"
@@ -2286,6 +2288,8 @@ function OpenCommandPaletteDialog(props: {
         return;
       }
 
+      assignProjectToActiveSpace(input.environmentId, cwd);
+
       const navigationResult = await settlePromise(() =>
         handleNewThread(scopeProjectRef(input.environmentId, projectId)),
       );
@@ -2303,6 +2307,7 @@ function OpenCommandPaletteDialog(props: {
       setOpen(false);
     },
     [
+      assignProjectToActiveSpace,
       handleNewThread,
       createProject,
       environments,
