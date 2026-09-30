@@ -161,7 +161,7 @@ export function ImportSessionsDialog({ onClose }: { readonly onClose: () => void
         else if (!open) onClose();
       }}
     >
-      <DialogPopup className="p-6" showCloseButton={!isImporting}>
+      <DialogPopup showCloseButton={!isImporting}>
         <DialogTitle>Import sessions</DialogTitle>
         <p className="mt-2 text-sm text-muted-foreground">
           Paste a Codex session link to check it before importing. Its history must be on the

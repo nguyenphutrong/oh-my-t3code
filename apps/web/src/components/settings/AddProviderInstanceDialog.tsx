@@ -424,7 +424,7 @@ export function AddProviderInstanceDialog({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium text-foreground">{selectedAcp.name}</span>
-                  <span className="text-[11px] text-muted-foreground">v{selectedAcp.version}</span>
+                  <span className="text-2xs text-muted-foreground">v{selectedAcp.version}</span>
                   <Badge variant="secondary" size="sm">
                     {selectedAcp.distribution}
                   </Badge>
@@ -561,7 +561,7 @@ export function AddProviderInstanceDialog({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-medium text-foreground">Environment variables</p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-2xs text-muted-foreground">
                       Mark credentials as secret so values are stored in the server secret store.
                     </p>
                   </div>
@@ -610,7 +610,7 @@ export function AddProviderInstanceDialog({
                         )
                       }
                     />
-                    <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <label className="flex items-center gap-1 text-2xs text-muted-foreground">
                       <input
                         type="checkbox"
                         checked={variable.sensitive}
@@ -641,7 +641,7 @@ export function AddProviderInstanceDialog({
                   </div>
                 ))}
                 {environmentError ? (
-                  <p className="text-[11px] text-destructive">{environmentError}</p>
+                  <p className="text-2xs text-destructive">{environmentError}</p>
                 ) : null}
               </div>
             </div>

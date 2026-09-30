@@ -676,7 +676,7 @@ export function ProviderInstanceCard({
               ) : null}
               {instance.driver !== "acpRegistry" &&
               String(instanceId) !== String(instance.driver) ? (
-                <code className="min-w-0 truncate rounded bg-muted/60 px-1 py-0.5 text-[10px] text-muted-foreground">
+                <code className="min-w-0 truncate rounded bg-muted/60 px-1 py-0.5 text-3xs text-muted-foreground">
                   {instanceId}
                 </code>
               ) : null}

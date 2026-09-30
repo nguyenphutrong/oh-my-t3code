@@ -220,7 +220,7 @@ export function WelcomeWizard({
           title={`Set up ${APP_BASE_NAME}`}
           identity={
             <div
-              className="text-[1.4rem] font-medium tracking-tight text-muted-foreground"
+              className="text-xl font-medium tracking-tight text-muted-foreground"
               role="img"
               aria-label={APP_BASE_NAME}
             >

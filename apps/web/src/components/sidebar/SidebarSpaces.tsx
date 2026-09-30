@@ -65,12 +65,17 @@ export function SidebarSpaces(props: {
     <>
       <nav
         aria-label="Spaces"
-        className="relative z-10 -mt-[var(--workspace-topbar-height)] flex h-[var(--workspace-topbar-height)] shrink-0 items-start pt-1 pl-[calc(var(--workspace-titlebar-content-left)-0.75rem)] pr-3"
+        className="relative z-10 -mt-[var(--workspace-topbar-height)] flex h-[var(--workspace-topbar-height)] shrink-0 items-start pt-1 pr-3"
+        style={{ paddingLeft: "calc(var(--workspace-titlebar-content-left) - 0.75rem)" }}
       >
         <DropdownMenu>
           <DropdownMenuTrigger
-            aria-label="Switch space"
-            className="-translate-y-px flex h-7 max-w-full items-center gap-2 rounded-md bg-sidebar-row-hover px-2 text-sm font-semibold text-sidebar-foreground outline-none transition-colors [-webkit-app-region:no-drag] hover:bg-sidebar-row-active focus-visible:ring-2 focus-visible:ring-ring"
+            render={
+              <button
+                aria-label="Switch space"
+                className="-translate-y-px flex h-7 max-w-full items-center gap-2 rounded-md bg-sidebar-row-hover px-2 text-sm font-semibold text-sidebar-foreground outline-none transition-colors [-webkit-app-region:no-drag] hover:bg-sidebar-row-active focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            }
           >
             {activeSpace ? (
               <span
@@ -127,7 +132,7 @@ export function SidebarSpaces(props: {
             editor
               ? "translate-y-0 grid-rows-[1fr] opacity-100"
               : "-translate-y-1 grid-rows-[0fr] opacity-0",
-            "transition-[grid-template-rows,opacity,transform] duration-200 ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:transition-none",
+            "transition-[grid-template-rows,opacity,transform] duration-200 ease-out motion-reduce:transition-none",
             editor &&
               "starting:-translate-y-1 starting:grid-rows-[0fr] starting:opacity-0 motion-reduce:starting:translate-y-0 motion-reduce:starting:grid-rows-[1fr] motion-reduce:starting:opacity-100",
           )}
@@ -191,7 +196,7 @@ export function SidebarSpaces(props: {
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2">
           <header className="flex shrink-0 items-start justify-between gap-4 px-1 pb-4">
             <div>
-              <h2 className="font-heading text-lg font-semibold">Spaces</h2>
+              <h2 className="text-lg font-semibold">Spaces</h2>
               <p className="text-sm text-sidebar-muted-foreground">
                 Organize projects into focused workspaces. Drag a project or use its selector.
               </p>
@@ -223,7 +228,7 @@ export function SidebarSpaces(props: {
                   <section
                     key={spaceId ?? "unassigned"}
                     className={cn(
-                      "flex h-full min-h-72 w-1/4 min-w-48 max-w-64 shrink-0 flex-col rounded-2xl border border-sidebar-border bg-sidebar-row-hover/50 p-3 shadow-sm transition-[transform,box-shadow,border-color] duration-200 ease-[cubic-bezier(.2,.8,.2,1)] hover:-translate-y-0.5 hover:shadow-md motion-reduce:transition-none",
+                      "flex h-full min-h-72 w-1/4 min-w-48 max-w-64 shrink-0 flex-col rounded-2xl border border-sidebar-border bg-sidebar-row-hover/50 p-3 shadow-sm transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md motion-reduce:transition-none",
                       spaceId !== null &&
                         spaceId === props.activeSpaceId &&
                         "border-primary/40 bg-primary/5",
@@ -240,7 +245,7 @@ export function SidebarSpaces(props: {
                     <div className="mb-3 flex h-8 items-center gap-2 px-1">
                       <button
                         type="button"
-                        className="min-w-0 flex-1 truncate text-left font-heading font-semibold"
+                        className="min-w-0 flex-1 truncate text-left font-semibold"
                         onClick={() => {
                           selectSpace(spaceId);
                         }}
@@ -250,8 +255,12 @@ export function SidebarSpaces(props: {
                       {space ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger
-                            aria-label={`Manage ${space.name} space`}
-                            className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                            render={
+                              <button
+                                aria-label={`Manage ${space.name} space`}
+                                className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                              />
+                            }
                           >
                             <MoreHorizontalIcon className="size-4" />
                           </DropdownMenuTrigger>
