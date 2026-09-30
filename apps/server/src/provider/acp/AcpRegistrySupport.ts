@@ -206,7 +206,7 @@ export function toAcpRegistryOperationError(error: AcpRegistryError): AcpRegistr
   });
 }
 
-export const isAcpRegistryError = Schema.is(AcpRegistryError);
+const isAcpRegistryError = Schema.is(AcpRegistryError);
 
 export type AcpRegistryPlatformTarget =
   | "darwin-aarch64"

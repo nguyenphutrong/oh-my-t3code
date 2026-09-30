@@ -360,7 +360,7 @@ export function setSidebarProjectScopeKey(state: UiState, projectKey: string | n
   };
 }
 
-export function setSidebarSpaceId(state: UiState, spaceId: string | null): UiState {
+function setSidebarSpaceId(state: UiState, spaceId: string | null): UiState {
   const nextId = sanitizeOptionalKey(spaceId);
   return state.sidebarSpaceId === nextId ? state : { ...state, sidebarSpaceId: nextId };
 }
