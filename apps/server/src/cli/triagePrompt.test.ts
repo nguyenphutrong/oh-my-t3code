@@ -56,7 +56,6 @@ it("context file carries every path the playbook depends on", () => {
       logsDir: "/home/u/.oh-my-t3code/userdata/logs",
       serviceLogPath: "/home/u/.oh-my-t3code/userdata/logs/boot-service.log",
       desktopBackendLogGlob: "/home/u/.oh-my-t3code/userdata/logs/server-child*.log*",
-      serverLogPath: "/home/u/.oh-my-t3code/userdata/logs/server.log",
       serverTracePath: "/home/u/.oh-my-t3code/userdata/logs/server.trace.ndjson",
       providerEventLogPath: "/home/u/.oh-my-t3code/userdata/logs/provider/events.log",
       terminalLogsDir: "/home/u/.oh-my-t3code/userdata/logs/terminals",
