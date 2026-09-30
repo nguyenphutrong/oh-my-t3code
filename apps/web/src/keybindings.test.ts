@@ -1425,22 +1425,23 @@ describe("Usage shortcuts", () => {
   });
 
   it.each(["Linux", "MacIntel"])(
-    "preserves desktop numbered thread shortcuts on Usage on %s",
+    "preserves desktop numbered navigation shortcuts on Usage on %s",
     (platform) => {
       const shortcut = event({
         key: "2",
         ctrlKey: platform === "Linux",
         metaKey: platform === "MacIntel",
       });
+      const command = platform === "Linux" ? "space.jump.2" : "thread.jump.2";
       assert.strictEqual(
         resolveShortcutCommand(shortcut, DEFAULT_RESOLVED_KEYBINDINGS, {
           platform,
           context: { usagePageOpen: true, isDesktop: true },
         }),
-        "thread.jump.2",
+        command,
       );
       assert.isNotNull(
-        shortcutLabelForCommand(DEFAULT_RESOLVED_KEYBINDINGS, "thread.jump.2", {
+        shortcutLabelForCommand(DEFAULT_RESOLVED_KEYBINDINGS, command, {
           platform,
           context: { usagePageOpen: true, isDesktop: true },
         }),
