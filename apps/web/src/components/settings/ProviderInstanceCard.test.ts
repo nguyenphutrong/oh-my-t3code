@@ -118,7 +118,7 @@ describe("deriveProviderModelsForDisplay", () => {
 
     expect(markup).toContain("Authenticated as");
     expect(markup).toContain('aria-label="Toggle account email visibility"');
-    expect(markup).toContain("blur-[2px]");
+    expect(markup).toContain("blur-xs");
     expect(markup).not.toContain("developer@example.com");
   });
 

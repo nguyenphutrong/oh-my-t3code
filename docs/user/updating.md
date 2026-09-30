@@ -59,3 +59,15 @@ update can roll back to the previous version. If the update still fails:
 ## Mobile updates
 
 This fork does not currently publish mobile-store releases.
+
+To update an environment from your phone, open **Settings → Environments** and
+select it. **Check for updates** finds the latest release on that environment's
+current release channel. Keep the app open while the environment updates and
+reconnects. Hosts that cannot update remotely show instructions for updating on
+the machine instead.
+
+The same page lets you refresh provider status and update supported providers.
+These controls require a connected environment and permission to operate it.
+Provider update checks and restart continuation preferences are in
+**Settings → Maintenance**. If provider update checks are disabled, enable them
+there before refreshing to find newer versions.

@@ -1,6 +1,12 @@
+import { useAtomValue } from "@effect/atom-react";
 import { useId } from "react";
 
+import { APP_STAGE_LABEL } from "../branding";
+import { resolveServerBackedAppStageLabel } from "../branding.logic";
+import { primaryServerConfigAtom } from "../state/server";
+
 export type SidebarStageBackdropVariant = "nightly" | "dev";
+export type EnvironmentIdentificationPillLabel = "Dev" | "Nightly";
 
 // A wide viewBox keeps the 96-unit art height at a fixed scale while sidebar resizing reveals
 // more horizontal canvas instead of zooming the scene.
@@ -17,8 +23,46 @@ export function resolveSidebarStageBackdropVariant(
   return null;
 }
 
+export function resolveEnvironmentIdentificationPillLabel(
+  stageLabel: string,
+): EnvironmentIdentificationPillLabel | null {
+  const normalized = stageLabel.trim().toLowerCase();
+  if (normalized === "dev") return "Dev";
+  if (normalized === "nightly") return "Nightly";
+  return null;
+}
+
+export function useEnvironmentStageLabel(): string {
+  const primaryServerVersion =
+    useAtomValue(primaryServerConfigAtom)?.environment.serverVersion ?? null;
+
+  return resolveServerBackedAppStageLabel({
+    primaryServerVersion,
+    fallbackStageLabel: APP_STAGE_LABEL,
+  });
+}
+
+export function useSidebarStageBackdropVariant(enabled = true): SidebarStageBackdropVariant | null {
+  return resolveSidebarStageBackdropVariant(useEnvironmentStageLabel(), enabled);
+}
+
+/** Stage-channel header art; palettes mirror the per-channel app icons in `assets/`. */
+export function SidebarStageBackdrop({ variant }: { variant: SidebarStageBackdropVariant }) {
+  return (
+    <div
+      aria-hidden
+      className="sidebar-stage-backdrop pointer-events-none absolute inset-x-0 top-0 z-0 h-20 select-none overflow-hidden"
+    >
+      <StageBackdropArt variant={variant} />
+    </div>
+  );
+}
 export function StageBackdropArt({ variant }: { variant: SidebarStageBackdropVariant }) {
   return variant === "nightly" ? <NightlySkyArt /> : <DevBlueprintArt />;
+}
+
+export function StageBackdropButtonArt({ variant }: { variant: SidebarStageBackdropVariant }) {
+  return variant === "nightly" ? <NightlySkyArt compact /> : <DevBlueprintArt compact />;
 }
 
 const NIGHTLY_STARS: ReadonlyArray<{
@@ -52,7 +96,7 @@ const NIGHTLY_SPARKLES: ReadonlyArray<{ x: number; y: number }> = [
   { x: 246, y: 26 },
 ];
 
-function NightlySkyArt() {
+function NightlySkyArt({ compact = false }: { compact?: boolean }) {
   const idPrefix = useId().replaceAll(":", "");
   const skyId = `${idPrefix}-stage-night-sky`;
   const glowId = `${idPrefix}-stage-night-glow`;
@@ -63,10 +107,11 @@ function NightlySkyArt() {
 
   return (
     <svg
-      className="stage-art stage-nightly h-full w-full"
+      data-stage-art="nightly"
+      className="h-full w-full"
       fill="none"
       preserveAspectRatio="xMinYMin slice"
-      viewBox={STAGE_BACKDROP_VIEW_BOX}
+      viewBox={compact ? "96 0 8192 96" : STAGE_BACKDROP_VIEW_BOX}
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
@@ -163,7 +208,7 @@ function NightlySkyArt() {
   );
 }
 
-function DevBlueprintArt() {
+function DevBlueprintArt({ compact = false }: { compact?: boolean }) {
   const idPrefix = useId().replaceAll(":", "");
   const paperId = `${idPrefix}-stage-bp-paper`;
   const glowId = `${idPrefix}-stage-bp-glow`;
@@ -177,10 +222,11 @@ function DevBlueprintArt() {
 
   return (
     <svg
-      className="stage-art stage-blueprint h-full w-full"
+      data-stage-art="blueprint"
+      className="h-full w-full"
       fill="none"
       preserveAspectRatio="xMinYMin slice"
-      viewBox={STAGE_BACKDROP_VIEW_BOX}
+      viewBox={compact ? "64 0 8192 96" : STAGE_BACKDROP_VIEW_BOX}
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
